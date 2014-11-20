@@ -1,2 +1,10 @@
-donkey
-monkey
+# Ignore everything
+*
+
+# But not these files...
+!.gitignore
+!velerator.php
+!velerator_files
+
+# ...even if they are in subdirectories
+!*/
