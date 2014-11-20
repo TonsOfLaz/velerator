@@ -5,6 +5,4 @@
 !.gitignore
 !velerator.php
 !velerator_files
-
-# ...even if they are in subdirectories
-!*/
+!sample.txt
