@@ -65,7 +65,7 @@ function createProject ($projectname, $projectfile) {
 		$object = explode(" ", $object)[0];
 		$routes[$object] = $object;
 	}
-	updateRoutesFile($routes);
+	loopOnViewsRoutes($routes);
 
 	// ===================================> NAVIGATION
 	$navs = [];
@@ -120,7 +120,7 @@ function addHomesteadMapping($projectname) {
 	}
 }
 
-function updateRoutesFile($routes_array) {
+function loopOnViewsRoutes($routes_array) {
 	$oldroutes = file_get_contents("./app/Http/routes.php");
 	
 
