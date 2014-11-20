@@ -1,0 +1,24 @@
+OBJECTS
+	bills
+		session_id sessions
+		title
+		intro_date
+		type
+		number
+		summary
+		sponsor_id legislators
+		*categories
+		*cosponsors legislators
+	legislators
+		first_name
+		last_name
+		chamber
+	categories
+		name
+	sessions
+		name
+
+NAVIGATION
+	Bills | bills
+	Legislators | legislators
+	Categories | categories

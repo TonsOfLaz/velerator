@@ -1,0 +1,14 @@
+OBJECTS
+	projects
+		type
+		title
+		*images
+	testimonials
+		first_name
+		last_name
+		quote
+
+NAVIGATION
+	Do I need an architect? | do-i-need
+	Projects | projects
+	Testimonials | testimonials
