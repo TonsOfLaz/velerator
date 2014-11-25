@@ -34,30 +34,21 @@ function createProject ($projectname, $projectfile) {
 	//addHomesteadMapping($projectname);
 
 	// ===================================> CREATE DIRECTORIES
-	mkdir($fullpath."/public/css");
-	mkdir($fullpath."/public/js");
-	mkdir($fullpath."/resources/views/pages");
 	mkdir($fullpath."/resources/views/sections");
-	mkdir($fullpath."/resources/views/snippets");
+	mkdir($fullpath."/resources/views/pages");
 
 	// ===================================> COPY GENERIC FILES
 	// Add home, navigation buttons, header, footer views
 	// Pull files from folder
-	copy("./generator_files/views/master.blade.php", $fullpath."/resources/views/master.blade.php");
-	copy("./generator_files/views/page.blade.php", $fullpath."/resources/views/pages/page.blade.php");
-	copy("./generator_files/views/header.blade.php", $fullpath."/resources/views/sections/header.blade.php");
-	copy("./generator_files/views/footer.blade.php", $fullpath."/resources/views/sections/footer.blade.php");
-	copy("./generator_files/css/main.css", $fullpath."/public/css/main.css");
+	copy("./velerator_files/views/master.blade.php", $fullpath."/resources/views/master.blade.php");
+	copy("./velerator_files/views/page.blade.php", $fullpath."/resources/views/pages/page.blade.php");
+	copy("./velerator_files/views/header.blade.php", $fullpath."/resources/views/sections/header.blade.php");
+	copy("./velerator_files/views/footer.blade.php", $fullpath."/resources/views/sections/footer.blade.php");
+	copy("./velerator_files/css/main.css", $fullpath."/public/css/main.css");
 
 	// ===================================> MOVE DIRECTORY INTO APP
 	echo "Entering directory $fullpath ...\n";
 	chdir($fullpath);
-	
-	// ===================================> UPDATE HOME ROUTE AND VIEW
-	$homecontroller = file_get_contents("./app/Http/Controllers/HomeController.php");
-	$newhome = str_replace("return view('hello');", "return view('home');", $homecontroller);
-	file_put_contents("./app/Http/Controllers/HomeController.php", $newhome);
-	createNewView("home");
 
 	// ===================================> ROUTES / SPECIFIC VIEWS
 	$routes = [];
@@ -137,10 +128,10 @@ get('$route/{id}', '$capsview"."Controller@show');
 ";
 		$temppath = "./app/Http/Controllers/".$capsview."Controller.php";
 		replaceEmptyFunction($temppath, "index", "return view('pages.$view');");
-		replaceEmptyFunction($temppath, "show", 'return "'.$view.'$id";');
+		replaceEmptyFunction($temppath, "show", 'return "'.$view.' $id";');
 	}
 
-	$replace = '$router'."->get('/', 'HomeController@index');";
+	$replace = '$router'."->get('/', 'WelcomeController@index');";
 	$newroutes = str_replace($replace, $replace."\n".$routestr, $oldroutes);
 	file_put_contents("./app/Http/routes.php", $newroutes);
 
