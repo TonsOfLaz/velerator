@@ -83,7 +83,7 @@ function createProject ($projectname, $projectfile) {
 	createNavigationFile($navs);
 
 	// ===================================> GIT COMMIT ON COMPLETE, SO YOU CAN SEE VELERATOR CHANGES
-	chdir($startdirectory);
+	chdir($fullpath);
 	echo "Final git commit...\n";
 	shell_exec("git add .");  
 	shell_exec("git commit -am 'Velerator has run on file ".$projectfile."'");
