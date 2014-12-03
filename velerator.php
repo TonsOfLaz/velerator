@@ -10,8 +10,8 @@ if (isset($argv[1]) && isset($argv[2])) {
 
 function createProject ($projectname, $projectfile) {
 
-	$currdirectory = getcwd();
-	$fullpath = $currdirectory."/".$projectname;
+	$startdirectory = getcwd();
+	$fullpath = $startdirectory."/".$projectname;
 
 	$project_array = createArrayFromFile($projectfile);
 
@@ -28,6 +28,19 @@ function createProject ($projectname, $projectfile) {
 	shell_exec("composer --no-interaction create-project laravel/laravel $projectname dev-develop");
 	echo "Laravel project $projectname created.\n";
 
+	// ===================================> MOVE DIRECTORY INTO APP
+	echo "Entering directory $fullpath ...\n";
+	chdir($fullpath);
+
+	// ===================================> GIT INIT/FIRST COMMIT
+	chdir($fullpath);
+	echo "Creating git object...\n";
+	shell_exec("git init");
+	echo "First git commit...\n";
+	shell_exec("git add .");  
+	shell_exec("git commit -am 'First git commit for empty project $projectname, before Velerator changes'");
+	echo "Added first git commit.\n";
+
 	// ===================================> LOCAL HOST
 	//addHostsMapping($projectname);
 	// ===================================> HOMESTEAD
@@ -40,15 +53,13 @@ function createProject ($projectname, $projectfile) {
 	// ===================================> COPY GENERIC FILES
 	// Add home, navigation buttons, header, footer views
 	// Pull files from folder
-	copy("./velerator_files/views/master.blade.php", $fullpath."/resources/views/master.blade.php");
-	copy("./velerator_files/views/page.blade.php", $fullpath."/resources/views/pages/page.blade.php");
-	copy("./velerator_files/views/header.blade.php", $fullpath."/resources/views/sections/header.blade.php");
-	copy("./velerator_files/views/footer.blade.php", $fullpath."/resources/views/sections/footer.blade.php");
-	copy("./velerator_files/css/main.css", $fullpath."/public/css/main.css");
+	copy($startdirectory."/velerator_files/views/master.blade.php", $fullpath."/resources/views/master.blade.php");
+	copy($startdirectory."/velerator_files/views/page.blade.php", $fullpath."/resources/views/pages/page.blade.php");
+	copy($startdirectory."/velerator_files/views/header.blade.php", $fullpath."/resources/views/sections/header.blade.php");
+	copy($startdirectory."/velerator_files/views/footer.blade.php", $fullpath."/resources/views/sections/footer.blade.php");
+	copy($startdirectory."/velerator_files/.env", $fullpath."/.env");
 
-	// ===================================> MOVE DIRECTORY INTO APP
-	echo "Entering directory $fullpath ...\n";
-	chdir($fullpath);
+
 
 	// ===================================> ROUTES / SPECIFIC VIEWS
 	$routes = [];
@@ -71,13 +82,14 @@ function createProject ($projectname, $projectfile) {
 	}
 	createNavigationFile($navs);
 
-	// ===================================> GIT
-	echo "Creating git object...\n";
-	shell_exec("git init");
-	echo "First git commit...\n";
+	// ===================================> GIT COMMIT ON COMPLETE, SO YOU CAN SEE VELERATOR CHANGES
+	chdir($startdirectory);
+	echo "Final git commit...\n";
 	shell_exec("git add .");  
-	shell_exec("git commit -am 'First git commit for $projectname'");
-	echo "Added first git commit.\n";
+	shell_exec("git commit -am 'Velerator has run on file ".$projectfile."'");
+	
+	// ===================================> FINISHED
+	echo "Project created.\n";
 	
 
 }
