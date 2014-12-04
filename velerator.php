@@ -69,7 +69,6 @@ function createProject ($projectname, $projectfile) {
 	// ===================================> REFERENCE ARRAYS - SINGULAR NAMES (i.e. bills, Bill)
 	$routes = [];
 	$singular_objects = [];
-	$singular_objects['users'] = "User";
 	foreach ($project_array['OBJECTS'] as $object_and_singular => $fields) {
 		$obj_sin_arr = explode(" ", $object_and_singular);
 		$object = $obj_sin_arr[0];
@@ -94,8 +93,23 @@ function createProject ($projectname, $projectfile) {
 	}
 	createNavigationFile($navs);
 
+	// ===================================> HOOK UP TO HOMESTEAD MYSQL DB
+	$local_db_config = file_get_contents($fullpath."/config/local/database.php");
+	$new_db_config = str_replace("localhost", "127.0.0.1:33060", $local_db_config);
+	file_put_contents($fullpath."/config/local/database.php", $new_db_config);
+
+	// ===================================> MIGRATIONS
+	echo "Creating migrations...\n";
+	foreach ($singular_objects as $object => $singular) {
+		shell_exec("php artisan make:migration --create=$object create_".$object."_table");
+	}
+	echo "Running migrations...\n";
+	shell_exec("php artisan migrate");
+
 	// ===================================> TABLE SEEDER USING FAKER
 	echo "Creating table seeders...\n";
+	// we also want access to the singular name of the users table, even though we didnt create it
+	$singular_objects['users'] = "User";
 	$table_seeder_calls = "";
 	$baseseeder = file_get_contents($startdirectory."/velerator_files/database/TableSeeder.php");
 	foreach ($project_array['FAKEDATA'] as $object_and_count => $fields) {
@@ -123,7 +137,9 @@ function createProject ($projectname, $projectfile) {
 	$database_seeder_master = file_get_contents($fullpath."/database/seeds/DatabaseSeeder.php");
 	$new_dbseed_master = str_replace('// $this'."->call('UserTableSeeder');", $table_seeder_calls, $database_seeder_master);
 	file_put_contents($fullpath."/database/seeds/DatabaseSeeder.php", $new_dbseed_master);
-	// $this->call('UserTableSeeder');
+
+	echo "Running seeders...\n";
+	//shell_exec("php artisan db:seed");
 
 
 	// ===================================> GIT COMMIT ON COMPLETE, SO YOU CAN SEE VELERATOR CHANGES
