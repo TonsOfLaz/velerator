@@ -1,5 +1,5 @@
 OBJECTS
-	bills
+	bills Bill
 		session_id sessions
 		title
 		intro_date
@@ -9,16 +9,44 @@ OBJECTS
 		sponsor_id legislators
 		*categories
 		*cosponsors legislators
-	legislators
+	legislators Legislator
 		first_name
 		last_name
 		chamber
-	categories
+		city
+	categories Category
 		name
-	sessions
+	sessions Session
 		name
+	tracks Track
+		name
+		user_id users
+		session_id sessions
 
 NAVIGATION
 	Bills | bills
 	Legislators | legislators
 	Categories | categories
+	Tracks | tracks
+
+FAKEDATA
+	bills 1000
+		title | realText($maxNbChars = 50, $indexSize = 2)
+		summary | paragraph($nbSentences = 3)
+		intro_date | dateTimeThisYear($max = 'now') 
+		type | randomElement($array = array ('HB','SB'))
+		number | unique->numberBetween($min = 1, $max = 9000)
+		sponsor_id | numberBetween($min = 1, $max = 200)
+		session_id | numberBetween($min = 1, $max = 12)
+	legislators 200
+		first_name | firstName($gender = null|'male'|'female')
+		last_name | lastName
+		chamber | randomElement($array = array ('H','S'))
+		city | city
+	categories 50
+		name | word
+	sessions 12
+		name | unique->year($max = 'now')
+	users 20
+		name | name($gender = null|'male'|'female')
+		email | email

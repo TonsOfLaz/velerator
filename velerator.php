@@ -41,12 +41,17 @@ function createProject ($projectname, $projectfile) {
 	shell_exec("git commit -am 'First git commit for empty project $projectname, before Velerator changes'");
 	echo "Added first git commit.\n";
 
+	// ===================================> ADD COMPOSER TOOLS
+	echo "Adding 'Faker' tool...\n";
+	//shell_exec("composer require fzaninotto/faker");
+
 	// ===================================> LOCAL HOST
 	//addHostsMapping($projectname);
 	// ===================================> HOMESTEAD
 	//addHomesteadMapping($projectname);
 
 	// ===================================> CREATE DIRECTORIES
+	echo "Creating directories...\n";
 	mkdir($fullpath."/resources/views/sections");
 	mkdir($fullpath."/resources/views/pages");
 
@@ -61,12 +66,19 @@ function createProject ($projectname, $projectfile) {
 
 
 
-	// ===================================> ROUTES / SPECIFIC VIEWS
+	// ===================================> REFERENCE ARRAYS - SINGULAR NAMES (i.e. bills, Bill)
 	$routes = [];
-	foreach ($project_array['OBJECTS'] as $object => $fields) {
-		$object = explode(" ", $object)[0];
+	$singular_objects = [];
+	$singular_objects['users'] = "User";
+	foreach ($project_array['OBJECTS'] as $object_and_singular => $fields) {
+		$obj_sin_arr = explode(" ", $object_and_singular);
+		$object = $obj_sin_arr[0];
+		$singular = $obj_sin_arr[1];
+		$singular_objects[$object] = $singular;
 		$routes[$object] = $object;
 	}
+
+	// ===================================> ROUTES / SPECIFIC VIEWS
 	loopOnViewsRoutes($routes);
 
 	// ===================================> NAVIGATION
@@ -81,6 +93,38 @@ function createProject ($projectname, $projectfile) {
 		$navs[$visible] = $view;
 	}
 	createNavigationFile($navs);
+
+	// ===================================> TABLE SEEDER USING FAKER
+	echo "Creating table seeders...\n";
+	$table_seeder_calls = "";
+	$baseseeder = file_get_contents($startdirectory."/velerator_files/database/TableSeeder.php");
+	foreach ($project_array['FAKEDATA'] as $object_and_count => $fields) {
+		$obj_cnt_arr = explode(" ", $object_and_count);
+		$object = $obj_cnt_arr[0];
+
+		$fakerstr = "";
+		$count = $obj_cnt_arr[1];
+		foreach ($fields as $field_and_fakergen) {
+			$fakergen_arr = explode("|", $field_and_fakergen, 2);
+			$faker_field = trim($fakergen_arr[0]);
+			$faker_gen = trim($fakergen_arr[1]);
+			$fakerstr .= "'$faker_field' => ".'$faker->'.$faker_gen.",
+				";
+		}
+		$singular = $singular_objects[$object];
+		$newseeder = str_replace('[NAME]', $singular, $baseseeder);
+		$newseeder = str_replace('[COUNT]', $count, $newseeder);
+		$newseeder = str_replace('[ARRAY]', $fakerstr, $newseeder);
+
+		file_put_contents($fullpath."/database/seeds/".$singular."TableSeeder.php", $newseeder);
+		$table_seeder_calls .= '$this'."->call('".$singular."TableSeeder');
+		";
+	}
+	$database_seeder_master = file_get_contents($fullpath."/database/seeds/DatabaseSeeder.php");
+	$new_dbseed_master = str_replace('// $this'."->call('UserTableSeeder');", $table_seeder_calls, $database_seeder_master);
+	file_put_contents($fullpath."/database/seeds/DatabaseSeeder.php", $new_dbseed_master);
+	// $this->call('UserTableSeeder');
+
 
 	// ===================================> GIT COMMIT ON COMPLETE, SO YOU CAN SEE VELERATOR CHANGES
 	chdir($fullpath);
@@ -132,15 +176,22 @@ function loopOnViewsRoutes($routes_array) {
 	foreach ($routes_array as $route => $view) {
 		$capsview = ucfirst($view);
 		shell_exec("php artisan make:controller ".$capsview."Controller");
-		//$oldcontroller = file_get_contents("./app/Http/Controllers/".$capsview."Controller.php");
 		
+		// Adds new main view for each page
 		createNewPageView($view);
-		$routestr .= "get('$route', '$capsview"."Controller@index');
-get('$route/{id}', '$capsview"."Controller@show');
-";
-		$temppath = "./app/Http/Controllers/".$capsview."Controller.php";
-		replaceEmptyFunction($temppath, "index", "return view('pages.$view');");
-		replaceEmptyFunction($temppath, "show", 'return "'.$view.' $id";');
+
+		// Include resource routes
+		$routestr .= '$router'."->resource('$route', '$capsview"."Controller');\n";
+
+		// Add resource functions
+		$controllerpath = "./app/Http/Controllers/".$capsview."Controller.php";
+		replaceEmptyFunction($controllerpath, "index",  "return view('pages.$view');");
+		replaceEmptyFunction($controllerpath, "create", 'return "Create '.$view.'";');
+		replaceEmptyFunction($controllerpath, "store",  'return "Store '.$view.'";');
+		replaceEmptyFunction($controllerpath, "show",   'return "'.$view.' $id";');
+		replaceEmptyFunction($controllerpath, "edit",   'return "Edit '.$view.' $id";');
+		replaceEmptyFunction($controllerpath, "update", 'return "Update '.$view.' $id";');
+		replaceEmptyFunction($controllerpath, "destroy",'return "Destroy '.$view.' $id";');
 	}
 
 	$replace = '$router'."->get('/', 'WelcomeController@index');";
