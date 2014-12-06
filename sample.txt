@@ -1,22 +1,22 @@
 OBJECTS
-	bills Bill
-		session_id sessions
-		title
-		intro_date
-		type
-		number
-		summary
-		sponsor_id legislators
-		*categories
-		*cosponsors legislators
 	legislators Legislator
 		first_name
 		last_name
 		chamber
 		city
-	categories Category
-		name
 	sessions Session
+		name
+	bills Bill
+		session_id sessions
+		title
+		intro_date
+		type
+		number integer
+		summary text
+		sponsor_id legislators
+		*categories
+		*cosponsors legislators
+	categories Category
 		name
 	tracks Track
 		name

@@ -1,5 +1,7 @@
 <?php 
 
+global $fullpath,$startdirectory;
+
 if (isset($argv[1]) && isset($argv[2])) {
 
 	createProject($argv[1], $argv[2]);
@@ -9,6 +11,8 @@ if (isset($argv[1]) && isset($argv[2])) {
 }
 
 function createProject ($projectname, $projectfile) {
+
+	global $startdirectory, $fullpath;
 
 	$startdirectory = getcwd();
 	$fullpath = $startdirectory."/".$projectname;
@@ -43,7 +47,7 @@ function createProject ($projectname, $projectfile) {
 
 	// ===================================> ADD COMPOSER TOOLS
 	echo "Adding 'Faker' tool...\n";
-	//shell_exec("composer require fzaninotto/faker");
+	shell_exec("composer require fzaninotto/faker");
 
 	// ===================================> LOCAL HOST
 	//addHostsMapping($projectname);
@@ -94,14 +98,114 @@ function createProject ($projectname, $projectfile) {
 	createNavigationFile($navs);
 
 	// ===================================> HOOK UP TO HOMESTEAD MYSQL DB
-	$local_db_config = file_get_contents($fullpath."/config/local/database.php");
-	$new_db_config = str_replace("localhost", "127.0.0.1:33060", $local_db_config);
-	file_put_contents($fullpath."/config/local/database.php", $new_db_config);
+	$local_db_config = file_get_contents($fullpath."/config/database.php");
+	$new_db_config = str_replace("'host'      => 'localhost'", "'host'      => ".'$_ENV'."['DB_HOST']", $local_db_config);
+	$new_db_config = str_replace("'database'  => 'forge'", "'database'  => ".'$_ENV'."['DB_DATABASE']", $new_db_config);
+	$new_db_config = str_replace("'username'  => 'forge'", "'username'  => ".'$_ENV'."['DB_USERNAME']", $new_db_config);
+	$new_db_config = str_replace("'password'  => ''", "'password'  => ".'$_ENV'."['DB_PASSWORD']", $new_db_config);
+	file_put_contents($fullpath."/config/database.php", $new_db_config);
 
-	// ===================================> MIGRATIONS
+	// ===================================> MIGRATIONS, SCHEMA, MODELS
 	echo "Creating migrations...\n";
-	foreach ($singular_objects as $object => $singular) {
+		
+	foreach ($project_array['OBJECTS'] as $object_and_singular => $fields_arr) {
+		$obj_sin_arr = explode(" ", $object_and_singular);
+		$object = $obj_sin_arr[0];
+		$singular = $obj_sin_arr[1];
+		// Create Migration
 		shell_exec("php artisan make:migration --create=$object create_".$object."_table");
+		
+		$allfields_arr = [];
+		$fillable_str = '';
+		$once = 1;
+		foreach ($fields_arr as $field_str) {
+			$fieldtype = "string";  // Default is string if blank
+			$secondarytable = "";
+			$thisfield_arr = explode(" ", $field_str);
+
+			$fieldname = $thisfield_arr[0];
+			if (substr($fieldname,0,1) == '*') {
+				// Ones with * need their own tables
+				continue;
+			} else {
+				if ($once) {
+					$fillable_str .= "'$fieldname'";
+					$once = 0;
+				} else {
+					$fillable_str .= ",'$fieldname'";
+				}
+				
+				if (strpos($fieldname, "_id") > 0) {
+					$fieldtype = "integer";
+					if (count($thisfield_arr) == 2) {
+						$secondarytable = $thisfield_arr[1];
+					}
+				} else if (strpos($fieldname, "_date") > 0) {
+					$fieldtype = "date";
+				} else if (count($thisfield_arr) == 2) {
+					$fieldtype = $thisfield_arr[1];
+				}
+				$tempfield_arr = [];
+				$tempfield_arr['name'] = $fieldname;
+				$tempfield_arr['type'] = $fieldtype;
+				$tempfield_arr['secondary'] = $secondarytable;
+				$allfields_arr[] = $tempfield_arr;
+			}
+			
+		}
+		// Update Schema file
+		addFieldArrayToCreateSchema($object, $allfields_arr);
+
+		// Create Model
+		$generic_model = file_get_contents($startdirectory."/velerator_files/Model.php");
+		$newmodel = str_replace("[NAME]", $singular, $generic_model);
+		$newmodel = str_replace("[TABLE]", $object, $newmodel);
+		$newmodel = str_replace("[FILLABLE_ARRAY]", "[$fillable_str]", $newmodel);
+		$newmodel = str_replace("[HIDDEN_ARRAY]", '[]', $newmodel);
+		file_put_contents($fullpath."/app/".$singular.".php", $newmodel);
+	}
+	echo "Creating Link tables...\n";
+	// Link table migrations have to be created AFTER the other tables
+	// So the foreign keys will link properly. The order matters here.
+	foreach ($project_array['OBJECTS'] as $object_and_singular => $fields_arr) {
+		$obj_sin_arr = explode(" ", $object_and_singular);
+		$object = $obj_sin_arr[0];
+		$singular = $obj_sin_arr[1];
+
+		foreach ($fields_arr as $field_str) {
+
+			$thisfield_arr = explode(" ", $field_str);
+
+			$fieldname = $thisfield_arr[0];
+			if (substr($fieldname,0,1) == '*') {
+				// Ones with * need their own tables
+				$othertable_name = str_replace("*", "", $fieldname);
+				$linktable_name = $object."_".$othertable_name;
+				if (count($thisfield_arr) > 1) {
+					$linktable = $thisfield_arr[1];
+				} else {
+					$linktable = $othertable_name;
+				}
+				shell_exec("php artisan make:migration --create=".$linktable_name." create_".$linktable_name."_table");
+				// Then make schema
+				$primary_field = strtolower($singular)."_id";
+				$secondary_field = strtolower($singular_objects[$linktable])."_id";
+				$primary_arr = [];
+				$primary_arr['name'] = $primary_field;
+				$primary_arr['type'] = "integer";
+				$primary_arr['secondary'] = $object;
+				$secondary_arr = [];
+				$secondary_arr['name'] = $secondary_field;
+				$secondary_arr['type'] = "integer";
+				$secondary_arr['secondary'] = $linktable;
+				$linkfields_arr = [];
+				$linkfields_arr[] = $primary_arr;
+				$linkfields_arr[] = $secondary_arr;
+				addFieldArrayToCreateSchema($linktable_name, $linkfields_arr);
+			} 
+			
+		}
+
 	}
 	echo "Running migrations...\n";
 	shell_exec("php artisan migrate");
@@ -138,8 +242,11 @@ function createProject ($projectname, $projectfile) {
 	$new_dbseed_master = str_replace('// $this'."->call('UserTableSeeder');", $table_seeder_calls, $database_seeder_master);
 	file_put_contents($fullpath."/database/seeds/DatabaseSeeder.php", $new_dbseed_master);
 
+
+	shell_exec("composer dump-autoload");
+
 	echo "Running seeders...\n";
-	//shell_exec("php artisan db:seed");
+	shell_exec("php artisan db:seed");
 
 
 	// ===================================> GIT COMMIT ON COMPLETE, SO YOU CAN SEE VELERATOR CHANGES
@@ -288,6 +395,38 @@ function createArrayFromFile($projectfile) {
 	}
 	//print_r($finalarray);
 	return $finalarray;
+}
+function addFieldArrayToCreateSchema($edit_table, $field_array) {
+	global $startdirectory, $fullpath;
+	$str = "";
+	foreach ($field_array as $field_vals) {
+		
+		$type = $field_vals['type'];
+		$name = $field_vals['name'];
+		$secondarytable = $field_vals['secondary'];
+		$after_function = "";
+
+		if ($type == 'integer') {
+			$type = 'unsignedInteger';
+		}
+
+		$str .= '$table'."->$type('$name')$after_function;
+			";
+
+		// if ($secondarytable) {
+		// 	$str .= '$table'."->foreign('$name')
+		// 			->references('id')->on('$secondarytable');
+  //     		";
+		// }
+	}
+	$glob_arr = glob($fullpath."/database/migrations/*_create_".$edit_table."_table.php");
+	if (count($glob_arr) > 0) {
+		$filename = $glob_arr[0];
+		$startmigration = file_get_contents($filename);
+		$oldstr = '$table->timestamps();';
+		$newfile = str_replace($oldstr, $str.$oldstr, $startmigration);
+		file_put_contents($filename, $newfile);
+	}
 }
 
 

@@ -1,4 +1,9 @@
 <?php
+
+use Illuminate\Database\Seeder;
+use Illuminate\Database\Eloquent\Model;
+use App\[NAME];
+
 class [NAME]TableSeeder extends Seeder 
 {
 
