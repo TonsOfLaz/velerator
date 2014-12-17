@@ -1,14 +1,28 @@
 OBJECTS
-	projects
+	projects Project
 		type
-		title
+		name
+		city
 		*images
-	testimonials
-		first_name
-		last_name
-		quote
+	testimonials Testimonial
+		name
+		shortquote
+		fullquote
+	images Image
+		name
+		file
 
 NAVIGATION
 	Do I need an architect? | do-i-need
 	Projects | projects
 	Testimonials | testimonials
+
+FAKEDATA
+	projects 50
+		type | randomElement($array = array ('New Home','Remodel','Addition'))
+		name | company
+		city | city
+	testimonials 50
+		name | name($gender = null|'male'|'female')
+		shortquote | realText($maxNbChars = 50, $indexSize = 2)
+		fullquote | paragraph($nbSentences = 3)

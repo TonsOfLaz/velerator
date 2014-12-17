@@ -97,7 +97,8 @@ function createProject ($projectname, $projectfile, $extra) {
 	// Add home, navigation buttons, header, footer views
 	// Pull files from folder
 
-	shell_exec("cp $startdirectory/velerator_files/templates/page.blade.php $fullpath/resources/templates/pages/page.blade.php");
+	shell_exec("cp $startdirectory/velerator_files/templates/all.blade.php $fullpath/resources/templates/pages/all.blade.php");
+	shell_exec("cp $startdirectory/velerator_files/templates/single.blade.php $fullpath/resources/templates/pages/single.blade.php");
 	shell_exec("cp $startdirectory/velerator_files/.env $fullpath/.env");
 	shell_exec("cp $startdirectory/velerator_files/css/main.css $fullpath/public/assets/css/main.css");
 	shell_exec("cp $startdirectory/velerator_files/foundation/css/*.css $fullpath/public/assets/css");
@@ -270,31 +271,33 @@ function createProject ($projectname, $projectfile, $extra) {
 
 	// ===================================> ADDING NAME FUNCTIONS
 	$objects_with_special_names = [];
-	foreach ($project_array['NAMES'] as $namestr => $emptyarray) {
-		$name_arr = explode("|", $namestr);
-		$object = trim($name_arr[0]);
-		$nameguide = trim($name_arr[1]);
-		$singular = $singular_objects[$object];
-		$objects_with_special_names[$object] = 1;
+	if (isset($project_array["NAMES"])) {
+		foreach ($project_array['NAMES'] as $namestr => $emptyarray) {
+			$name_arr = explode("|", $namestr);
+			$object = trim($name_arr[0]);
+			$nameguide = trim($name_arr[1]);
+			$singular = $singular_objects[$object];
+			$objects_with_special_names[$object] = 1;
 
-		preg_match_all('|\$([a-zA-Z_]*)|', $nameguide, $matches);
-		$varstr = "";
-		foreach ($matches[1] as $varname) {
-			$varstr .= '$'.$varname.' = $this->'.$varname.";
-		";
+			preg_match_all('|\$([a-zA-Z_]*)|', $nameguide, $matches);
+			$varstr = "";
+			foreach ($matches[1] as $varname) {
+				$varstr .= '$'.$varname.' = $this->'.$varname.";
+			";
+			}
+			$functioncontent = $varstr."
+			".'return "'.$nameguide.'";';
+			//echo $functioncontent;
+			
+			$modelfile = file_get_contents($fullpath."/app/".$singular.".php");
+			$newmodelfile = str_replace('protected $hidden = [];', 'protected $hidden = [];
+
+		public function name() {
+			'.$functioncontent.'
+		}', $modelfile);
+			file_put_contents($fullpath."/app/".$singular.".php", $newmodelfile);
+
 		}
-		$functioncontent = $varstr."
-		".'return "'.$nameguide.'";';
-		//echo $functioncontent;
-		
-		$modelfile = file_get_contents($fullpath."/app/".$singular.".php");
-		$newmodelfile = str_replace('protected $hidden = [];', 'protected $hidden = [];
-
-	public function name() {
-		'.$functioncontent.'
-	}', $modelfile);
-		file_put_contents($fullpath."/app/".$singular.".php", $newmodelfile);
-
 	}
 
 	$functioncontent = 'return $this->name;';
@@ -442,7 +445,7 @@ function createNavigationFile($navs) {
 }
 function createNewPageView($viewname) {
 	$uppercase = ucwords($viewname);
-	$baseview = file_get_contents("./resources/templates/pages/page.blade.php");
+	$baseview = file_get_contents("./resources/templates/pages/all.blade.php");
 	$oldstr = "[TITLE]";
 	$newstr = $uppercase;
 	$newview = str_replace($oldstr, $newstr, $baseview);
@@ -456,7 +459,7 @@ function createNewPageView($viewname) {
 	file_put_contents("./resources/templates/pages/".$viewname.".blade.php", $newview);
 }
 function createNewView($viewname) {
-	$baseview = file_get_contents("./resources/templates/pages/page.blade.php");
+	$baseview = file_get_contents("./resources/templates/pages/all.blade.php");
 	$oldstr = "@section('title')";
 	$newstr = "@section('title')
 	$viewname";
