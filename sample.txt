@@ -3,6 +3,7 @@ OBJECTS
 		first_name
 		last_name
 		chamber
+		party
 		city
 	sessions Session
 		name
@@ -23,6 +24,10 @@ OBJECTS
 		user_id users
 		session_id sessions
 
+NAMES
+	legislators | $chamber. $last_name, $first_name ($party)
+	bills | $type$number - $title
+
 NAVIGATION
 	Bills | bills
 	Legislators | legislators
@@ -30,18 +35,19 @@ NAVIGATION
 	Tracks | tracks
 
 FAKEDATA
-	bills 1000
+	bills 200
 		title | realText($maxNbChars = 50, $indexSize = 2)
 		summary | paragraph($nbSentences = 3)
 		intro_date | dateTimeThisYear($max = 'now') 
 		type | randomElement($array = array ('HB','SB'))
 		number | unique->numberBetween($min = 1, $max = 9000)
-		sponsor_id | numberBetween($min = 1, $max = 200)
-		session_id | numberBetween($min = 1, $max = 12)
-	legislators 200
+		sponsor_id | numberBetween($min = 1, $max = 50)
+		session_id | numberBetween($min = 10, $max = 12)
+	legislators 50
 		first_name | firstName($gender = null|'male'|'female')
 		last_name | lastName
 		chamber | randomElement($array = array ('H','S'))
+		party | randomElement($array = array ('D','R'))
 		city | city
 	categories 50
 		name | word
@@ -50,3 +56,16 @@ FAKEDATA
 	users 20
 		name | name($gender = null|'male'|'female')
 		email | email
+		password | password
+	tracks 20
+		name | catchPhrase
+		user_id | numberBetween($min = 1, $max = 20)
+		session_id | numberBetween($min = 10, $max = 12)
+	bills_cosponsors 200
+		bill_id | numberBetween($min = 1, $max = 200)
+		legislator_id | numberBetween($min = 1, $max = 50)
+	bills_categories 50
+		bill_id | numberBetween($min = 1, $max = 200)
+		category_id | numberBetween($min = 1, $max = 50)
+
+

@@ -4,13 +4,18 @@ global $fullpath,$startdirectory;
 
 if (isset($argv[1]) && isset($argv[2])) {
 
-	createProject($argv[1], $argv[2]);
+	if (isset($argv[3])) {
+		createProject($argv[1], $argv[2], $argv[3]);
+	} else {
+		createProject($argv[1], $argv[2], '');
+	}
+	
 
 } else {
 	echo "Please add a project name and genfile, i.e.: \nphp generator.php myproject mygenfile.txt";
 }
 
-function createProject ($projectname, $projectfile) {
+function createProject ($projectname, $projectfile, $extra) {
 
 	global $startdirectory, $fullpath;
 
@@ -18,36 +23,62 @@ function createProject ($projectname, $projectfile) {
 	$fullpath = $startdirectory."/".$projectname;
 
 	$project_array = createArrayFromFile($projectfile);
+	// print_r($project_array);
+	// exit();
+
+	
 
 	// ===================================> CLEARING OLD VERSION
-	if (is_dir($fullpath)) {
+	$quickreset = false;
+	if ($extra == 'clear') {
 		echo "Clearing existing directory...\n";
 		shell_exec("rm -rf ".$fullpath);
 		echo "Done deleting $projectname\n";
-	} 
+	}
+	if (is_dir($fullpath)) {
+		// Instead of creating a new project, we just reset git to a fresh project install
+		// This speeds up running it and stops tasking the composer servers
+		echo "Reverting to a clean install...\n";
+		$quickreset = true;
+		chdir($fullpath);
+		$resp = shell_exec("git log --pretty=format:'%h' --reverse | head -1");
+		shell_exec("git reset --hard $resp");
+		shell_exec("git clean -fd");
+	} else {
+		// ===================================> LARAVEL
+		echo "Creating Laravel project...\n";
+		//shell_exec("laravel new ".$projectname);
+		shell_exec("composer --no-interaction create-project laravel/laravel $projectname dev-develop");
+		echo "Laravel project $projectname created.\n";
 
-	// ===================================> LARAVEL
-	echo "Creating Laravel project...\n";
-	//shell_exec("laravel new ".$projectname);
-	shell_exec("composer --no-interaction create-project laravel/laravel $projectname dev-develop");
-	echo "Laravel project $projectname created.\n";
+		// ===================================> ADD COMPOSER TOOLS
+		chdir($fullpath);
+		echo "Adding 'Faker' tool...\n";
+		shell_exec("composer require fzaninotto/faker");
+
+		// ===================================> ADD NODE TOOLS (GULP, FOR ELIXIR)
+		// These are declared in packages.json
+		//shell_exec("npm install");
+	}
+
 
 	// ===================================> MOVE DIRECTORY INTO APP
 	echo "Entering directory $fullpath ...\n";
 	chdir($fullpath);
 
-	// ===================================> GIT INIT/FIRST COMMIT
-	chdir($fullpath);
-	echo "Creating git object...\n";
-	shell_exec("git init");
-	echo "First git commit...\n";
-	shell_exec("git add .");  
-	shell_exec("git commit -am 'First git commit for empty project $projectname, before Velerator changes'");
-	echo "Added first git commit.\n";
+	
 
-	// ===================================> ADD COMPOSER TOOLS
-	echo "Adding 'Faker' tool...\n";
-	shell_exec("composer require fzaninotto/faker");
+	// ===================================> GIT INIT/FIRST COMMIT
+	if (!$quickreset) {
+		chdir($fullpath);
+		echo "Creating git object...\n";
+		shell_exec("git init");
+		echo "First git commit...\n";
+		shell_exec("git add .");  
+		shell_exec("git commit -am 'First git commit for empty project $projectname, before Velerator changes'");
+		echo "Added first git commit.\n";
+	}
+
 
 	// ===================================> LOCAL HOST
 	//addHostsMapping($projectname);
@@ -56,19 +87,28 @@ function createProject ($projectname, $projectfile) {
 
 	// ===================================> CREATE DIRECTORIES
 	echo "Creating directories...\n";
-	mkdir($fullpath."/resources/views/sections");
-	mkdir($fullpath."/resources/views/pages");
+	mkdir($fullpath."/resources/templates/pages");
+	mkdir($fullpath."/resources/templates/sections");
+	mkdir($fullpath."/public/assets");
+	mkdir($fullpath."/public/assets/css");
+	mkdir($fullpath."/public/assets/js");
 
 	// ===================================> COPY GENERIC FILES
 	// Add home, navigation buttons, header, footer views
 	// Pull files from folder
-	copy($startdirectory."/velerator_files/views/master.blade.php", $fullpath."/resources/views/master.blade.php");
-	copy($startdirectory."/velerator_files/views/page.blade.php", $fullpath."/resources/views/pages/page.blade.php");
-	copy($startdirectory."/velerator_files/views/header.blade.php", $fullpath."/resources/views/sections/header.blade.php");
-	copy($startdirectory."/velerator_files/views/footer.blade.php", $fullpath."/resources/views/sections/footer.blade.php");
-	copy($startdirectory."/velerator_files/.env", $fullpath."/.env");
 
+	shell_exec("cp $startdirectory/velerator_files/templates/page.blade.php $fullpath/resources/templates/pages/page.blade.php");
+	shell_exec("cp $startdirectory/velerator_files/.env $fullpath/.env");
+	shell_exec("cp $startdirectory/velerator_files/css/main.css $fullpath/public/assets/css/main.css");
+	shell_exec("cp $startdirectory/velerator_files/foundation/css/*.css $fullpath/public/assets/css");
+	shell_exec("cp -R $startdirectory/velerator_files/foundation/js/* $fullpath/public/assets/js");
 
+	// ===================================> WELCOME PAGE
+	$appview = file_get_contents($startdirectory."/velerator_files/templates/app.blade.php");
+	$newappview = str_replace("[APPNAME]", ucwords($projectname), $appview);
+	file_put_contents($fullpath."/resources/templates/app.blade.php", $newappview);
+	$welcome = file_get_contents($startdirectory."/velerator_files/templates/welcome.blade.php");
+	file_put_contents($fullpath."/resources/templates/welcome.blade.php", $welcome);
 
 	// ===================================> REFERENCE ARRAYS - SINGULAR NAMES (i.e. bills, Bill)
 	$routes = [];
@@ -82,7 +122,7 @@ function createProject ($projectname, $projectfile) {
 	}
 
 	// ===================================> ROUTES / SPECIFIC VIEWS
-	loopOnViewsRoutes($routes);
+	loopOnViewsRoutes($routes, $singular_objects);
 
 	// ===================================> NAVIGATION
 	$navs = [];
@@ -97,12 +137,19 @@ function createProject ($projectname, $projectfile) {
 	}
 	createNavigationFile($navs);
 
+	
+
 	// ===================================> HOOK UP TO HOMESTEAD MYSQL DB
+	shell_exec("touch $fullpath/storage/database.sqlite");
 	$local_db_config = file_get_contents($fullpath."/config/database.php");
+	/*
 	$new_db_config = str_replace("'host'      => 'localhost'", "'host'      => ".'$_ENV'."['DB_HOST']", $local_db_config);
 	$new_db_config = str_replace("'database'  => 'forge'", "'database'  => ".'$_ENV'."['DB_DATABASE']", $new_db_config);
 	$new_db_config = str_replace("'username'  => 'forge'", "'username'  => ".'$_ENV'."['DB_USERNAME']", $new_db_config);
 	$new_db_config = str_replace("'password'  => ''", "'password'  => ".'$_ENV'."['DB_PASSWORD']", $new_db_config);
+	*/
+
+	$new_db_config = str_replace("'default' => 'mysql',", "'default' => 'sqlite',", $local_db_config);
 	file_put_contents($fullpath."/config/database.php", $new_db_config);
 
 	// ===================================> MIGRATIONS, SCHEMA, MODELS
@@ -156,13 +203,6 @@ function createProject ($projectname, $projectfile) {
 		// Update Schema file
 		addFieldArrayToCreateSchema($object, $allfields_arr);
 
-		// Create Model
-		$generic_model = file_get_contents($startdirectory."/velerator_files/Model.php");
-		$newmodel = str_replace("[NAME]", $singular, $generic_model);
-		$newmodel = str_replace("[TABLE]", $object, $newmodel);
-		$newmodel = str_replace("[FILLABLE_ARRAY]", "[$fillable_str]", $newmodel);
-		$newmodel = str_replace("[HIDDEN_ARRAY]", '[]', $newmodel);
-		file_put_contents($fullpath."/app/".$singular.".php", $newmodel);
 	}
 	echo "Creating Link tables...\n";
 	// Link table migrations have to be created AFTER the other tables
@@ -181,6 +221,12 @@ function createProject ($projectname, $projectfile) {
 				// Ones with * need their own tables
 				$othertable_name = str_replace("*", "", $fieldname);
 				$linktable_name = $object."_".$othertable_name;
+
+				// Add these tables to the singular table array
+				// So they will get their own objects and seeder data
+				$linktable_name_singular = ucfirst($object).ucfirst($othertable_name);
+				$singular_objects[$linktable_name] = $linktable_name_singular;
+
 				if (count($thisfield_arr) > 1) {
 					$linktable = $thisfield_arr[1];
 				} else {
@@ -209,6 +255,62 @@ function createProject ($projectname, $projectfile) {
 	}
 	echo "Running migrations...\n";
 	shell_exec("php artisan migrate");
+
+	// ===================================> CREATING MODELS
+
+	foreach ($singular_objects as $object => $singular) {
+		// Create Model
+		$generic_model = file_get_contents($startdirectory."/velerator_files/Model.php");
+		$newmodel = str_replace("[NAME]", $singular, $generic_model);
+		$newmodel = str_replace("[TABLE]", $object, $newmodel);
+		$newmodel = str_replace("[FILLABLE_ARRAY]", "[$fillable_str]", $newmodel);
+		$newmodel = str_replace("[HIDDEN_ARRAY]", '[]', $newmodel);
+		file_put_contents($fullpath."/app/".$singular.".php", $newmodel);
+	}
+
+	// ===================================> ADDING NAME FUNCTIONS
+	$objects_with_special_names = [];
+	foreach ($project_array['NAMES'] as $namestr => $emptyarray) {
+		$name_arr = explode("|", $namestr);
+		$object = trim($name_arr[0]);
+		$nameguide = trim($name_arr[1]);
+		$singular = $singular_objects[$object];
+		$objects_with_special_names[$object] = 1;
+
+		preg_match_all('|\$([a-zA-Z_]*)|', $nameguide, $matches);
+		$varstr = "";
+		foreach ($matches[1] as $varname) {
+			$varstr .= '$'.$varname.' = $this->'.$varname.";
+		";
+		}
+		$functioncontent = $varstr."
+		".'return "'.$nameguide.'";';
+		//echo $functioncontent;
+		
+		$modelfile = file_get_contents($fullpath."/app/".$singular.".php");
+		$newmodelfile = str_replace('protected $hidden = [];', 'protected $hidden = [];
+
+	public function name() {
+		'.$functioncontent.'
+	}', $modelfile);
+		file_put_contents($fullpath."/app/".$singular.".php", $newmodelfile);
+
+	}
+
+	$functioncontent = 'return $this->name;';
+	foreach ($singular_objects as $object => $singular) {
+		// Fill in name() return .name for remaining objects
+
+		if (!isset($objects_with_special_names[$object])) {
+			$modelfile = file_get_contents($fullpath."/app/".$singular.".php");
+			$newmodelfile = str_replace('protected $hidden = [];', 'protected $hidden = [];
+
+	public function name() {
+		'.$functioncontent.'
+	}', $modelfile);
+			file_put_contents($fullpath."/app/".$singular.".php", $newmodelfile);
+		}
+	}
 
 	// ===================================> TABLE SEEDER USING FAKER
 	echo "Creating table seeders...\n";
@@ -290,25 +392,32 @@ function addHomesteadMapping($projectname) {
 	}
 }
 
-function loopOnViewsRoutes($routes_array) {
+function loopOnViewsRoutes($routes_array, $singular_array) {
 	$oldroutes = file_get_contents("./app/Http/routes.php");
-	
+	global $fullpath, $startpath;
 
 	$routestr = "";
 	$controllerstr = "";
 	foreach ($routes_array as $route => $view) {
+		$singular = $singular_array[$view];
 		$capsview = ucfirst($view);
 		shell_exec("php artisan make:controller ".$capsview."Controller");
+
+		$thiscontroller = file_get_contents($fullpath."/app/Http/Controllers/".$capsview."Controller.php");
+		$newcontroller = str_replace("use App\Http\Controllers\Controller;", 'use App\Http\Controllers\Controller;
+use App\\'.$singular.";", $thiscontroller);
+		file_put_contents($fullpath."/app/Http/Controllers/".$capsview."Controller.php", $newcontroller);
 		
 		// Adds new main view for each page
 		createNewPageView($view);
 
 		// Include resource routes
-		$routestr .= '$router'."->resource('$route', '$capsview"."Controller');\n";
+		$routestr .= "Route::resource('$route', '$capsview"."Controller');\n";
 
 		// Add resource functions
 		$controllerpath = "./app/Http/Controllers/".$capsview."Controller.php";
-		replaceEmptyFunction($controllerpath, "index",  "return view('pages.$view');");
+		replaceEmptyFunction($controllerpath, "index",  "$".$view." = ".$singular."::all();
+		return view('pages.$view', array('$view' => $".$view."));");
 		replaceEmptyFunction($controllerpath, "create", 'return "Create '.$view.'";');
 		replaceEmptyFunction($controllerpath, "store",  'return "Store '.$view.'";');
 		replaceEmptyFunction($controllerpath, "show",   'return "'.$view.' $id";');
@@ -317,7 +426,7 @@ function loopOnViewsRoutes($routes_array) {
 		replaceEmptyFunction($controllerpath, "destroy",'return "Destroy '.$view.' $id";');
 	}
 
-	$replace = '$router'."->get('/', 'WelcomeController@index');";
+	$replace = "Route::get('home', 'HomeController@index');";
 	$newroutes = str_replace($replace, $replace."\n".$routestr, $oldroutes);
 	file_put_contents("./app/Http/routes.php", $newroutes);
 
@@ -327,24 +436,27 @@ function loopOnViewsRoutes($routes_array) {
 function createNavigationFile($navs) {
 	$navstr = "";
 	foreach ($navs as $name => $path) {
-		$navstr .= "<a href='/$path'>$name</a>";
+		$navstr .= "<li><a href='/$path'>$name</a></li>\n";
 	}
-	file_put_contents("./resources/views/sections/navigation.blade.php", $navstr);
+	file_put_contents("./resources/templates/sections/navigation.blade.php", $navstr);
 }
 function createNewPageView($viewname) {
-	$baseview = file_get_contents("./resources/views/pages/page.blade.php");
-	$oldstr = "@section('title')";
-	$newstr = "@section('title')
-	$viewname";
+	$uppercase = ucwords($viewname);
+	$baseview = file_get_contents("./resources/templates/pages/page.blade.php");
+	$oldstr = "[TITLE]";
+	$newstr = $uppercase;
 	$newview = str_replace($oldstr, $newstr, $baseview);
-	$oldstr = "@section('content')";
-	$newstr = "@section('content')
-	$viewname";
+	$oldstr = "[CONTENT]";
+	$newstr = '<ul>
+						@foreach ($'.$viewname.' as $obj)
+						<li><a href="/'.$viewname.'/{{$obj->id}}">{{ $obj->name() }}</a></li>
+						@endforeach
+					</ul>';
 	$newview = str_replace($oldstr, $newstr, $newview);
-	file_put_contents("./resources/views/pages/".$viewname.".blade.php", $newview);
+	file_put_contents("./resources/templates/pages/".$viewname.".blade.php", $newview);
 }
 function createNewView($viewname) {
-	$baseview = file_get_contents("./resources/views/pages/page.blade.php");
+	$baseview = file_get_contents("./resources/templates/pages/page.blade.php");
 	$oldstr = "@section('title')";
 	$newstr = "@section('title')
 	$viewname";
@@ -353,7 +465,7 @@ function createNewView($viewname) {
 	$newstr = "@section('content')
 	$viewname";
 	$newview = str_replace($oldstr, $newstr, $newview);
-	file_put_contents("./resources/views/".$viewname.".blade.php", $newview);
+	file_put_contents("./resources/templates/".$viewname.".blade.php", $newview);
 }
 function replaceEmptyFunction($filepath, $function, $newcode) {
 	$originalfile = file_get_contents($filepath);
