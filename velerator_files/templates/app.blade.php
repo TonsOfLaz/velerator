@@ -6,14 +6,14 @@
 		 
 		<title>@yield('title')</title>
 		 
-		<link rel="stylesheet" type="text/css" href="assets/css/foundation.css">
-		<link rel="stylesheet" type="text/css" href="assets/css/app.css">
-		<link rel="stylesheet" type="text/css" href="assets/js/vendor/modernizr.js">
+		<link rel="stylesheet" type="text/css" href="http://donkey.local/assets/css/foundation.css">
+		<link rel="stylesheet" type="text/css" href="http://donkey.local/assets/css/app.css">
+		<link rel="stylesheet" type="text/css" href="http://donkey.local/assets/js/vendor/modernizr.js">
 
-		<link rel="stylesheet" type="text/css" href="assets/css/main.css">
+		<link rel="stylesheet" type="text/css" href="http://donkey.local/assets/css/main.css">
 	</head>
 	<body>
-		<nav class="top-bar" data-topbar>
+		<nav class="top-bar small-12" data-topbar>
 			<ul class="title-area">
 				<li class="name">
 				<h1><a href="/">Home</a></h1>
@@ -47,10 +47,10 @@
 		 
 		@yield('content')
 		 
-		<script type="text/javascript" src="assets/js/functions.js"></script>
-		<script type="text/javascript" src="assets/js/vendor/jquery.js"></script>
-		<script type="text/javascript" src="assets/js/foundation.min.js"></script>
-		<script type="text/javascript" src="assets/js/app.js"></script>
+		<script type="text/javascript" src="http://donkey.local/assets/js/functions.js"></script>
+		<script type="text/javascript" src="http://donkey.local/assets/js/vendor/jquery.js"></script>
+		<script type="text/javascript" src="http://donkey.local/assets/js/foundation.min.js"></script>
+		<script type="text/javascript" src="http://donkey.local/assets/js/app.js"></script>
 		<script>
 			$(document).foundation();
 		</script>

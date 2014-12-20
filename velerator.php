@@ -23,10 +23,13 @@ function createProject ($projectname, $projectfile, $extra) {
 	$fullpath = $startdirectory."/".$projectname;
 
 	$project_array = createArrayFromFile($projectfile);
-	// print_r($project_array);
-	// exit();
-
 	
+	// Optional files for templates
+	$project_files = "";
+	$project_file_root = explode(".", $projectfile)[0];
+	if (is_dir($project_file_root."_files")) {
+		$project_files = $startdirectory."/".$project_file_root."_files";
+	}
 
 	// ===================================> CLEARING OLD VERSION
 	$quickreset = false;
@@ -66,7 +69,7 @@ function createProject ($projectname, $projectfile, $extra) {
 	echo "Entering directory $fullpath ...\n";
 	chdir($fullpath);
 
-	
+	//exit();
 
 	// ===================================> GIT INIT/FIRST COMMIT
 	if (!$quickreset) {
@@ -100,7 +103,6 @@ function createProject ($projectname, $projectfile, $extra) {
 	shell_exec("cp $startdirectory/velerator_files/templates/all.blade.php $fullpath/resources/templates/pages/all.blade.php");
 	shell_exec("cp $startdirectory/velerator_files/templates/single.blade.php $fullpath/resources/templates/pages/single.blade.php");
 	shell_exec("cp $startdirectory/velerator_files/.env $fullpath/.env");
-	shell_exec("cp $startdirectory/velerator_files/css/main.css $fullpath/public/assets/css/main.css");
 	shell_exec("cp $startdirectory/velerator_files/foundation/css/*.css $fullpath/public/assets/css");
 	shell_exec("cp -R $startdirectory/velerator_files/foundation/js/* $fullpath/public/assets/js");
 
@@ -108,7 +110,13 @@ function createProject ($projectname, $projectfile, $extra) {
 	$appview = file_get_contents($startdirectory."/velerator_files/templates/app.blade.php");
 	$newappview = str_replace("[APPNAME]", ucwords($projectname), $appview);
 	file_put_contents($fullpath."/resources/templates/app.blade.php", $newappview);
-	$welcome = file_get_contents($startdirectory."/velerator_files/templates/welcome.blade.php");
+	if (file_exists("$project_files/welcome.blade.php")) {
+		shell_exec("cp $project_files/css/main.css $fullpath/public/assets/css/main.css");
+		$welcome = file_get_contents("$project_files/welcome.blade.php");
+	} else {
+		$welcome = file_get_contents($startdirectory."/velerator_files/templates/welcome.blade.php");
+	}
+	
 	file_put_contents($fullpath."/resources/templates/welcome.blade.php", $welcome);
 
 	// ===================================> REFERENCE ARRAYS - SINGULAR NAMES (i.e. bills, Bill)
@@ -403,6 +411,7 @@ function loopOnViewsRoutes($routes_array, $singular_array) {
 	$controllerstr = "";
 	foreach ($routes_array as $route => $view) {
 		$singular = $singular_array[$view];
+		$singular_lower = strtolower($singular);
 		$capsview = ucfirst($view);
 		shell_exec("php artisan make:controller ".$capsview."Controller");
 
@@ -412,7 +421,7 @@ use App\\'.$singular.";", $thiscontroller);
 		file_put_contents($fullpath."/app/Http/Controllers/".$capsview."Controller.php", $newcontroller);
 		
 		// Adds new main view for each page
-		createNewPageView($view);
+		createNewPageView($view, $singular_array);
 
 		// Include resource routes
 		$routestr .= "Route::resource('$route', '$capsview"."Controller');\n";
@@ -423,7 +432,8 @@ use App\\'.$singular.";", $thiscontroller);
 		return view('pages.$view', array('$view' => $".$view."));");
 		replaceEmptyFunction($controllerpath, "create", 'return "Create '.$view.'";');
 		replaceEmptyFunction($controllerpath, "store",  'return "Store '.$view.'";');
-		replaceEmptyFunction($controllerpath, "show",   'return "'.$view.' $id";');
+		replaceEmptyFunction($controllerpath, "show",   "$".$singular_lower." = ".$singular."::find(".'$id'.");
+		return view('pages.$singular_lower', array('$singular_lower' => $".$singular_lower."));");
 		replaceEmptyFunction($controllerpath, "edit",   'return "Edit '.$view.' $id";');
 		replaceEmptyFunction($controllerpath, "update", 'return "Update '.$view.' $id";');
 		replaceEmptyFunction($controllerpath, "destroy",'return "Destroy '.$view.' $id";');
@@ -443,7 +453,7 @@ function createNavigationFile($navs) {
 	}
 	file_put_contents("./resources/templates/sections/navigation.blade.php", $navstr);
 }
-function createNewPageView($viewname) {
+function createNewPageView($viewname, $singular_objects) {
 	$uppercase = ucwords($viewname);
 	$baseview = file_get_contents("./resources/templates/pages/all.blade.php");
 	$oldstr = "[TITLE]";
@@ -457,6 +467,13 @@ function createNewPageView($viewname) {
 					</ul>';
 	$newview = str_replace($oldstr, $newstr, $newview);
 	file_put_contents("./resources/templates/pages/".$viewname.".blade.php", $newview);
+	// Single object
+	$lowercase = strtolower($singular_objects[$viewname]);
+	$baseview = file_get_contents("./resources/templates/pages/single.blade.php");
+	$oldstr = "[OBJECT]";
+	$newstr = '$'.$lowercase;
+	$newview = str_replace($oldstr, $newstr, $baseview);
+	file_put_contents("./resources/templates/pages/".$lowercase.".blade.php", $newview);
 }
 function createNewView($viewname) {
 	$baseview = file_get_contents("./resources/templates/pages/all.blade.php");
