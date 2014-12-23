@@ -4,7 +4,9 @@ OBJECTS
 		last_name
 		chamber
 		party
+		website
 		city
+		image
 	sessions Session
 		name
 	bills Bill
@@ -34,6 +36,28 @@ NAVIGATION
 	Categories | categories
 	Tracks | tracks
 
+LISTFUNCTIONS
+	bills
+		newLegislation | New Legislation
+		recentActions | Recent Actions
+		nearGovernor | Near Governor
+	legislators
+		representatives | Representatives
+		senators | Senators
+		leadership | Leadership
+
+STANDARDWELCOME
+	replace
+		image | business
+		imagebox | technics
+		tagline | The power to compete on Beacon Hill
+		box1 | Search
+		box1quote | Find the exact legislation you want, immediately
+		box2 | Track 
+		box2quote | Follow the bills you care about with email alerts
+		box3 | Report
+		box3quote | Craft beautiful reports for your clients
+
 FAKEDATA
 	bills 200
 		title | realText($maxNbChars = 50, $indexSize = 2)
@@ -49,6 +73,8 @@ FAKEDATA
 		chamber | randomElement($array = array ('H','S'))
 		party | randomElement($array = array ('D','R'))
 		city | city
+		image | imageUrl($width = 150, $height = 200, 'people')
+		website | domainName
 	categories 50
 		name | word
 	sessions 12

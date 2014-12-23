@@ -104,14 +104,18 @@ function createProject ($projectname, $projectfile, $extra) {
 	shell_exec("cp $startdirectory/velerator_files/templates/single.blade.php $fullpath/resources/templates/pages/single.blade.php");
 	shell_exec("cp $startdirectory/velerator_files/.env $fullpath/.env");
 	shell_exec("cp $startdirectory/velerator_files/foundation/css/*.css $fullpath/public/assets/css");
+	shell_exec("cp $startdirectory/velerator_files/css/*.css $fullpath/public/assets/css");
+	shell_exec("cp $startdirectory/velerator_files/js/*.js $fullpath/public/assets/js");
 	shell_exec("cp -R $startdirectory/velerator_files/foundation/js/* $fullpath/public/assets/js");
 
 	// ===================================> WELCOME PAGE
 	$appview = file_get_contents($startdirectory."/velerator_files/templates/app.blade.php");
 	$newappview = str_replace("[APPNAME]", ucwords($projectname), $appview);
 	file_put_contents($fullpath."/resources/templates/app.blade.php", $newappview);
+	shell_exec("cp $project_files/css/custom.css $fullpath/public/assets/css/custom.css");
+	shell_exec("cp $project_files/js/custom.js $fullpath/public/assets/js/custom.js");
+
 	if (file_exists("$project_files/welcome.blade.php")) {
-		shell_exec("cp $project_files/css/main.css $fullpath/public/assets/css/main.css");
 		$welcome = file_get_contents("$project_files/welcome.blade.php");
 	} else {
 		$welcome = file_get_contents($startdirectory."/velerator_files/templates/welcome.blade.php");
@@ -323,6 +327,49 @@ function createProject ($projectname, $projectfile, $extra) {
 		}
 	}
 
+	// ===================================> LIST FUNCTIONS
+	if (isset($project_array['LISTFUNCTIONS'])) {
+		foreach ($project_array['LISTFUNCTIONS'] as $object => $function_name_titles) {
+			$str = "";
+			$listfunction_arr = [];
+			foreach ($function_name_titles as $function_name_title) {
+				$name_title_arr = explode("|",$function_name_title);
+				$function_name = trim($name_title_arr[0]);
+				$function_title = trim($name_title_arr[1]);
+				$listfunction_arr[$function_name] = $function_title;
+				$str .= "<a href=\"$object/$function_name\">$function_title</a><br>";
+			}
+			// Add to all.blade.php views
+			$oldview = file_get_contents($fullpath."/resources/templates/pages/$object.blade.php");
+			$newview = str_replace("[LISTFUNCTIONS]", $str, $oldview);
+			file_put_contents($fullpath."/resources/templates/pages/$object.blade.php", $newview);
+			
+			// Add to Model objects
+			foreach ($listfunction_arr as $function_name => $function_title) {
+				$singular = $singular_objects[$object];
+				$oldmodel = file_get_contents($fullpath."/app/$singular.php");
+				$newmodel = str_replace('protected $hidden = [];', "protected ".'$hidden'." = [];
+
+	public function ".$function_name."() {
+		// $function_title
+	}", $oldmodel);
+				file_put_contents($fullpath."/app/$singular.php", $newmodel);
+			}
+
+			// Add to routes
+		}
+	}
+
+	// ===================================> STANDARD WELCOME PAGE
+	$welcome = file_get_contents($fullpath."/resources/templates/welcome.blade.php");
+	foreach ($project_array["STANDARDWELCOME"]['replace'] as $find_replace) {
+		$find_replace_arr = explode("|", $find_replace);
+		$find = trim($find_replace_arr[0]);
+		$replace = trim($find_replace_arr[1]);
+		$welcome = str_replace("[".strtoupper($find)."]", $replace, $welcome);
+	}
+	file_put_contents($fullpath."/resources/templates/welcome.blade.php", $welcome);
+
 	// ===================================> TABLE SEEDER USING FAKER
 	echo "Creating table seeders...\n";
 	// we also want access to the singular name of the users table, even though we didnt create it
@@ -460,9 +507,9 @@ function createNewPageView($viewname, $singular_objects) {
 	$newstr = $uppercase;
 	$newview = str_replace($oldstr, $newstr, $baseview);
 	$oldstr = "[CONTENT]";
-	$newstr = '<ul>
+	$newstr = '<ul class="list-expandable">
 						@foreach ($'.$viewname.' as $obj)
-						<li><a href="/'.$viewname.'/{{$obj->id}}">{{ $obj->name() }}</a></li>
+						<li><span>{{ $obj->name() }}</span><div class="list-expandable-contents"><a href="/'.$viewname.'/{{$obj->id}}">View</a></div></li>
 						@endforeach
 					</ul>';
 	$newview = str_replace($oldstr, $newstr, $newview);

@@ -3,26 +3,42 @@ OBJECTS
 		type
 		name
 		city
-		*images
+		image_id images
 	testimonials Testimonial
 		name
 		shortquote
 		fullquote
 	images Image
-		name
 		file
+		project_id projects
 
 NAVIGATION
 	Do I need an architect? | do-i-need
 	Projects | projects
 	Testimonials | testimonials
 
+STANDARDWELCOME
+	replace
+		image | city
+		imagebox | city
+		tagline | Your vision meets 30 years of experience
+		box1 | New Homes
+		box1quote | Design your dream home
+		box2 | Remodels 
+		box2quote | The home you've always wanted may be the one you are already in
+		box3 | Additions
+		box3quote | Let your house expand with your life
+
 FAKEDATA
 	projects 50
 		type | randomElement($array = array ('New Home','Remodel','Addition'))
 		name | company
 		city | city
+		image_id | numberBetween($min = 1, $max = 200)
 	testimonials 50
 		name | name($gender = null|'male'|'female')
 		shortquote | realText($maxNbChars = 50, $indexSize = 2)
 		fullquote | paragraph($nbSentences = 3)
+	images 200
+		file | imageUrl($width = 800, $height = 500, 'city')
+		project_id | numberBetween($min = 1, $max = 50)

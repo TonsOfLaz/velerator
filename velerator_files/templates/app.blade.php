@@ -11,6 +11,7 @@
 		<link rel="stylesheet" type="text/css" href="http://donkey.local/assets/js/vendor/modernizr.js">
 
 		<link rel="stylesheet" type="text/css" href="http://donkey.local/assets/css/main.css">
+		<link rel="stylesheet" type="text/css" href="http://donkey.local/assets/css/custom.css">
 	</head>
 	<body>
 		<nav class="top-bar small-12" data-topbar>
@@ -51,6 +52,8 @@
 		<script type="text/javascript" src="http://donkey.local/assets/js/vendor/jquery.js"></script>
 		<script type="text/javascript" src="http://donkey.local/assets/js/foundation.min.js"></script>
 		<script type="text/javascript" src="http://donkey.local/assets/js/app.js"></script>
+		<script type="text/javascript" src="http://donkey.local/assets/js/main.js"></script>
+		<script type="text/javascript" src="http://donkey.local/assets/js/custom.js"></script>
 		<script>
 			$(document).foundation();
 		</script>

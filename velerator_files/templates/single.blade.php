@@ -10,10 +10,12 @@
 	<div class="columns small-12">{{ [OBJECT]->name() }}</div>
 </div>
 <div class="row">
-	<div class="columns small-8">
-		{{ [OBJECT]->id }}
+	<div class="columns small-6">
+		<img src="{{ [OBJECT]->image }}" />
 	</div>
-	<div class="columns small-4 panel"></div>
+	<div class="columns small-6">
+
+	</div>
 </div>
 
 @stop

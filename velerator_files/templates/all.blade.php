@@ -10,8 +10,8 @@
 	<div class="columns small-12">[TITLE]</div>
 </div>
 <div class="row">
-	<div class="columns small-4 panel"></div>
-	<div class="columns small-8">
+	<div class="columns small-12 medium-3">[LISTFUNCTIONS]</div>
+	<div class="columns small-12 medium-9">
 		[CONTENT]
 	</div>
 </div>
