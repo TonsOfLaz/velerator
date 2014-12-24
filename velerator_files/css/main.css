@@ -1,5 +1,15 @@
+@import  url(//fonts.googleapis.com/css?family=Lato:300);
+
 body {
-	background: #ccc;
+	margin:0;
+	font-family:'Lato', sans-serif;
+	-webkit-font-smoothing:antialiased;
+	-moz-osx-font-smoothing:grayscale;
+	background: #bbb;
+}
+.top-bar-section ul li > a {
+    font-family:'Lato', sans-serif;
+    font-size: 1rem;
 }
 #image_overlay {
 	margin-top: -5rem;
@@ -7,10 +17,12 @@ body {
 	background: black;
 	opacity: .7;
 	color: white;
+
 }
 #image_overlay p {
-	line-height: 2;
+	line-height: 2.2;
 	font-size: 2rem;
+	font-weight: bold;
 }
 .row-light {
 	background: #ddd;
@@ -32,6 +44,27 @@ body {
     top: 110px;
     width: 180%;
     /*box-shadow: 2px 2px 3px #999;*/
+}
+.section {
+	min-height: 350px;
+}
+.section-content {
+	padding: 50px;
+}
+.section-title {
+	font-size: 2rem;
+	padding-top: 100px;
+}
+.section-background-0 {
+	
+}
+.section-background-1 {
+	background: #0d3866;
+    color: white;
+}
+.section-background-2 {
+	background: white;
+    color: #999;
 }
 
 ul.list-expandable {

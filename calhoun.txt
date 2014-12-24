@@ -21,13 +21,19 @@ STANDARDWELCOME
 	replace
 		image | city
 		imagebox | city
-		tagline | Your vision meets 30 years of experience
+		tagline | Your vision meets 30 years of architectural experience
 		box1 | New Homes
 		box1quote | Design your dream home
-		box2 | Remodels 
-		box2quote | The home you've always wanted may be the one you are already in
-		box3 | Additions
-		box3quote | Let your house expand with your life
+		box2 | Additions
+		box2quote | Let your house expand with your life
+		box3 | Remodeling
+		box3quote | The home you've always wanted may be the one you are already in
+	sections
+		Do I need an architect? | Are you looking for an architect, or a builder? Do you need a home inspector, a realtor, or a lawyer? Where do you start answering these questions?
+		"The finest craftmanship available, at any cost" | That was our former client, John Doe. Our years of work have left clients with a lot to say.
+		The home you've always wanted could be the one you already have | Do you love your location, but feel the house has never lived up to its potential? It might be possible to remodel your existing home into you dream home.
+		Celebrating 30 years! | Charles Calhoun, founder and owner of Calhoun Architecturals, designed his first home in 1984.
+
 
 FAKEDATA
 	projects 50

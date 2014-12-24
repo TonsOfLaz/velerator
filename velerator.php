@@ -368,6 +368,29 @@ function createProject ($projectname, $projectfile, $extra) {
 		$replace = trim($find_replace_arr[1]);
 		$welcome = str_replace("[".strtoupper($find)."]", $replace, $welcome);
 	}
+	$section_str = "";
+	foreach ($project_array["STANDARDWELCOME"]['sections'] as $key => $section_title_content) {
+		$section_title_content_arr = explode("|", $section_title_content);
+		$title = trim($section_title_content_arr[0]);
+		$content = trim($section_title_content_arr[1]);
+		$section_background = $key % 3;
+		if ($key % 2 == 0) {
+			$section_str .= "<div class=\"section-background-$section_background\">
+				<div class=\"row section section-background-$section_background\">
+					<div class=\"section-title columns small-12 medium-5\">$title</div>
+					<div class=\"section-content columns small-12 medium-7\">$content</div>
+				</div>
+			</div>";
+		} else {
+			$section_str .= "<div class=\"section-background-$section_background\">
+				<div class=\"row section\">
+					<div class=\"section-content columns small-12 medium-7\">$content</div>
+					<div class=\"section-title columns small-12 medium-5\">$title</div>
+				</div>
+			</div>";
+		}
+	}
+	$welcome = str_replace("[SECTIONS]", $section_str, $welcome);
 	file_put_contents($fullpath."/resources/templates/welcome.blade.php", $welcome);
 
 	// ===================================> TABLE SEEDER USING FAKER
