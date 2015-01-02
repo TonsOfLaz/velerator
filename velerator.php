@@ -181,13 +181,13 @@ function createProject ($projectname, $projectfile, $extra) {
 				// Add route
 				$routes = file_get_contents($fullpath."/app/Http/routes.php");
 				$newroutes = str_replace("Route::get('/', 'WelcomeController@index');", "Route::get('/', 'WelcomeController@index');
-	Route::get('$filecore', 'PagesController@$functionname');", $routes);
+Route::get('$filecore', 'PagesController@$functionname');", $routes);
 				file_put_contents($fullpath."/app/Http/routes.php", $newroutes);
 
 				// Add controller function
 				$pagescontroller = file_get_contents($fullpath."/app/Http/Controllers/PagesController.php");
 				$new_pagescontroller = str_replace("// Custom routes below", "// Custom routes below
-	function $functioname() {
+	function $functionname() {
 		return view('$filecore');
 	}", $pagescontroller);
 				file_put_contents($fullpath."/app/Http/Controllers/PagesController.php", $new_pagescontroller);
