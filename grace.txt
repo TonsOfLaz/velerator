@@ -1,0 +1,50 @@
+OBJECTS
+	horses Horse
+		type
+		name
+		city
+		file
+	stables Stable
+		name
+		shortquote
+		fullquote
+	veterinarians Veterinarian
+		file
+		project_id projects
+
+NAVIGATION
+	Horses | horses
+	Stables | stables
+	Veterinarians | veterinarians
+
+STANDARDWELCOME
+	replace
+		image | animals
+		imagebox | animals
+		tagline | Horses: the true King of the Jungle
+		box1 | Buy Horses
+		box1quote | None for free
+		box2 | Sell Horses
+		box2quote | Sell you some horses, and fast!
+		box3 | Horses are slaves
+		box3quote | Have you no soul?
+	sections
+		What's a horse? | Are you looking for an architect, or a builder? Do you need a home inspector, a realtor, or a lawyer? Where do you start answering these questions?
+		"Please leave these horses alone" | That was our former client, John Doe. Our years of work have left clients with a lot to say.
+		Horse Madness! | Do you love your location, but feel the house has never lived up to its potential? It might be possible to remodel your existing home into you dream home.
+		Celebrating 30 years! | Charles Calhoun, founder and owner of Calhoun Architecturals, designed his first home in 1984.
+
+
+FAKEDATA
+	horses 50
+		type | randomElement($array = array ('New Home','Remodel','Addition'))
+		name | company
+		city | city
+		file | imageUrl($width = 800, $height = 500, 'animals')
+	stables 50
+		name | name($gender = null|'male'|'female')
+		shortquote | realText($maxNbChars = 50, $indexSize = 2)
+		fullquote | paragraph($nbSentences = 3)
+	veterinarians 200
+		file | imageUrl($width = 800, $height = 500, 'city')
+		horse_id | numberBetween($min = 1, $max = 50)

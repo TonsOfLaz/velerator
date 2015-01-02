@@ -1,0 +1,39 @@
+OBJECTS
+	photos Photo
+		file
+		elo
+	matches Match
+		photo1_id
+		photo2_id
+		winner
+		ip
+
+NAVIGATION
+	Play Elo | play
+	Rankings | rankings
+
+STANDARDWELCOME
+	replace
+		image | nature
+		imagebox | people
+		tagline | The simplest, fastest way to rank anything
+		box1 | Play Elo
+		box1quote | The game is simple: Just choose between two things.
+		box2 | Check rankings
+		box2quote | Based on chess ratings, elo updates the rankings after every match.
+		box3 | Share
+		box3quote | The more you play, the more accurate the rankings.
+	sections
+
+PACKAGES
+	intervention/image
+		provider | Intervention\Image\ImageServiceProvider
+		alias | Intervention\Image\Facades\Image
+
+CREATEFILES
+	elo.js
+		.match img,.match .btn | click
+	play.blade.php
+		.row.match*3>.columns.medium-5.small-12>img^.columns.medium-2.small-12>.btn^.columns.medium-5.small-12
+	rankings.blade.php
+		.row>.columns.small-12.medium-4>img^.columns.small-12.medium-8
