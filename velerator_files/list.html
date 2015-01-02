@@ -1,89 +1,91 @@
 <html>
 	<head>
+		<meta http-equiv="refresh" content="5">
 		<link rel="stylesheet" href="foundation/css/foundation.min.css">
 		<link rel="stylesheet" href="foundation/css/normalize.css">
 	</head>
 	<body>
-		<div class="row">
-			<div class="columns small-12 medium-3">
-				<ul>
-					<li><a href="">Lorem ipsum dolor.</a></li>
-					<li><a href="">Dolor, dolorum, hic?</a></li>
-					<li><a href="">Tempore, facilis, accusantium.</a></li>
-					<li><a href="">Quibusdam, modi, odio.</a></li>
-					<li><a href="">Tenetur consequatur, consectetur.</a></li>
-					<li><a href="">Temporibus, accusamus, cum?</a></li>
-					<li><a href="">Iusto, magni, voluptatem.</a></li>
-					<li><a href="">Repellendus, esse est!</a></li>
-					<li><a href="">Culpa mollitia, quis.</a></li>
-				</ul>
-			</div>
-			<div class="columns small-12 medium-9">
-				<ul class="list-expandable">
-					<li><span>Lorem ipsum dolor sit amet.</span><div class="list-expandable-contents"></div></li>
-					<li><span>Dolores recusandae dolor sunt, necessitatibus.</span><div class="list-expandable-contents"></div></li>
-					<li><span>Repellat id sunt architecto asperiores.</span><div class="list-expandable-contents"></div></li>
-					<li><span>Perferendis, aliquid magnam qui assumenda.</span><div class="list-expandable-contents"></div></li>
-					<li><span>Eveniet dignissimos accusamus ad fugit.</span><div class="list-expandable-contents"></div></li>
-					<li><span>Debitis animi harum minima quos!</span><div class="list-expandable-contents"></div></li>
-					<li><span>Deserunt ratione quas quisquam numquam!</span><div class="list-expandable-contents"></div></li>
-					<li><span>Ab, molestiae quas voluptas beatae.</span><div class="list-expandable-contents"></div></li>
-					<li><span>Nemo repudiandae aut neque ullam!</span><div class="list-expandable-contents"></div></li>
-					<li><span>Unde officiis accusantium omnis eum.</span><div class="list-expandable-contents"></div></li>
+		
+		<div id="background_fixed">
+		
 
-				</ul>
+			<div class="row">
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
 			</div>
+			<div class="row">
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+			</div>
+			<div class="row">
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+			</div>
+			<div class="row">
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+			</div>
+			<div class="row">
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+			</div>
+			<div class="row">
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+			</div>
+			<div class="row">
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+			</div>
+			<div class="row">
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+			</div>
+			<div class="row">
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+			</div>
+			<div class="row">
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+				<div class="columns small-12 large-3 panel"></div>
+			</div>
+
 		</div>
+
 		<script type="text/javascript" src="foundation/js/vendor/jquery.js"></script>
 		<script type="text/javascript" src="foundation/js/foundation.min.js"></script>
 		<script  type="text/javascript">
-			$(document).ready(function() {
-				$("ul.list-expandable > li > span").click(function() {
-					$(this).parent().find(".list-expandable-contents").slideToggle();
-				});
-				
-				$("ul.list-expandable > li > span").hover(
-					function() {
-						$( this ).addClass( "hover" );
-					}, function() {
-						$( this ).removeClass( "hover" );
-					}
-				);
-			});
+			
 		</script>
 		<style>
-			body {
-				font-family: "Courier New", Courier, monospace;
-				font-weight: bold;	
-				color: #444;
-			}
-			ul {
-				list-style: none;
-			}
-			ul.list-expandable {
-				list-style: none;
-				border-bottom: 1px solid #ccc;
-			}
-			ul.list-expandable > li {
-				border-top: 	1px solid #ccc;
-				border-right: 	1px solid #bbb;
-				border-left: 	1px solid #aaa;
-			}
-			ul.list-expandable > li > span {
-				
-				background: white;
-				cursor: pointer;
-				padding:5px;
-				width: 100%;
-				display:block;
-			}
-			ul.list-expandable > li > span.hover {
-				transition: .3s;
-				background: #f2f2f2;
-			}
-			.list-expandable-contents {
-				height: 200px;
-				display:none;
+			#background_fixed {
+				width:100%;
+				height: 100%;
+				background-position: center center;
+				background-repeat: none none;
+				background-image: url("003.JPG");
+				background-attachment: fixed;
+
 			}
 
 		</style>

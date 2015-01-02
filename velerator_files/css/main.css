@@ -51,12 +51,16 @@ body {
 .section-content {
 	padding: 50px;
 }
+.section-content .button {
+	float: left;
+	clear: both;
+}
 .section-title {
-	font-size: 2rem;
-	padding-top: 100px;
+	font-size: 2.4rem;
+	padding-top: 80px;
 }
 .section-background-0 {
-	
+	color: #0d3866;
 }
 .section-background-1 {
 	background: #0d3866;

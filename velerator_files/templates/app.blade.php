@@ -26,7 +26,7 @@
 			<section class="top-bar-section">
 				<!-- Right Nav Section -->
 				<ul class="right">
-					<li data-reveal-id="clock-modal">
+					<!-- <li data-reveal-id="clock-modal">
 						<a href="/">About</a>
 					</li>
 					<li class="has-dropdown">
@@ -35,7 +35,7 @@
 							<li><a href="/">Home</a></li>
 							<li><a href="/">Home</a></li>
 						</ul>
-					</li>
+					</li> -->
 					@include("sections.navigation")
 				</ul>
 				 
@@ -54,6 +54,7 @@
 		<script type="text/javascript" src="http://donkey.local/assets/js/app.js"></script>
 		<script type="text/javascript" src="http://donkey.local/assets/js/main.js"></script>
 		<script type="text/javascript" src="http://donkey.local/assets/js/custom.js"></script>
+		[JSFILES]
 		<script>
 			$(document).foundation();
 		</script>

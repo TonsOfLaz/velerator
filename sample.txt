@@ -4,6 +4,10 @@ OBJECTS
 		last_name
 		chamber
 		party
+		phone
+		district
+		email
+		address
 		website
 		city
 		image
@@ -57,6 +61,11 @@ STANDARDWELCOME
 		box2quote | Follow the bills you care about with email alerts
 		box3 | Report
 		box3quote | Craft beautiful reports for your clients
+	sections
+		Know what's happening right now on Beacon Hill | Are you looking for an architect, or a builder? Do you need a home inspector, a realtor, or a lawyer? Where do you start answering these questions?
+		"I cannot work without InstaTrac. It's absolutely essential." | That was our former client, John Doe. Our years of work have left clients with a lot to say.
+		Budgets, budgets, budgets. | Do you love your location, but feel the house has never lived up to its potential? It might be possible to remodel your existing home into you dream home.
+		Celebrating 30 years! | Michael Segal, founder and owner of InstTrac Inc, designed his first service in 1984.
 
 FAKEDATA
 	bills 200
@@ -75,6 +84,10 @@ FAKEDATA
 		city | city
 		image | imageUrl($width = 150, $height = 200, 'people')
 		website | domainName
+		phone | phoneNumber
+		district | numberBetween($min = 1, $max = 200)
+		email | email
+		address | address
 	categories 50
 		name | word
 	sessions 12

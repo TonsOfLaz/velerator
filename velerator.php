@@ -56,8 +56,28 @@ function createProject ($projectname, $projectfile, $extra) {
 
 		// ===================================> ADD COMPOSER TOOLS
 		chdir($fullpath);
-		echo "Adding 'Faker' tool...\n";
-		shell_exec("composer require fzaninotto/faker");
+		if (isset($project_array['FAKEDATA'])) {
+			
+			echo "Adding 'Faker' tool...\n";
+			shell_exec("composer require fzaninotto/faker");
+		}
+		foreach ($project_array['PACKAGES'] as $name => $package_settings) {
+			echo "Adding '$name' tool...\n";
+			shell_exec("composer require $name");
+			foreach ($package_settings as $key => $type_value) {
+				$type_value_arr = explode("|", $type_value);
+				$type = trim($type_value_arr[0]);
+				$value = trim($type_value_arr[1]);
+				switch ($type) {
+					case "provider":
+						//addProvider($value);
+						break;
+					case "alias":
+						//addFacade($value);
+						break;
+				}
+			}
+		}
 
 		// ===================================> ADD NODE TOOLS (GULP, FOR ELIXIR)
 		// These are declared in packages.json
@@ -106,6 +126,7 @@ function createProject ($projectname, $projectfile, $extra) {
 	shell_exec("cp $startdirectory/velerator_files/foundation/css/*.css $fullpath/public/assets/css");
 	shell_exec("cp $startdirectory/velerator_files/css/*.css $fullpath/public/assets/css");
 	shell_exec("cp $startdirectory/velerator_files/js/*.js $fullpath/public/assets/js");
+	shell_exec("cp $startdirectory/velerator_files/controllers/PagesController.php $fullpath/app/Http/Controllers/PagesController.php");
 	shell_exec("cp -R $startdirectory/velerator_files/foundation/js/* $fullpath/public/assets/js");
 
 	// ===================================> WELCOME PAGE
@@ -122,7 +143,61 @@ function createProject ($projectname, $projectfile, $extra) {
 	}
 	
 	file_put_contents($fullpath."/resources/templates/welcome.blade.php", $welcome);
+	$jsfile_links = "";
+	// ===================================> CREATE PAGES
+	foreach ($project_array['CREATEFILES'] as $filename => $filedetails) {
+		$fileparts = explode(".", $filename);
+		$filetype = $fileparts[count($fileparts) - 1];
+		$filecore = $fileparts[0];
+		
+		switch ($filetype) {
+			case "js":
+				$jsfile_links .= '<script type="text/javascript" src="http://donkey.local/assets/js/'.$filename.'"></script>
+				';
+				$file_str = '$(document).ready(function() {
+	';
+				foreach ($filedetails as $jsfunction) {
+					$jsfunc_arr = explode("|", $jsfunction);
+					$selector = trim($jsfunc_arr[0]);
+					$func = trim($jsfunc_arr[1]);
+					$file_str .= '$("'.$selector.'").'.$func."(function() {
+			// 
+		});
+		";
+				}
+				$file_str .= "
+});";
+				file_put_contents($fullpath."/public/assets/js/".$filename, $file_str);
+				break;
+			case "php":
+				$file_str = "";
+				foreach ($filedetails as $emmet) {
+					$file_str .= $emmet."
+	";
+				}
+				file_put_contents($fullpath."/resources/templates/".$filename, $file_str);
+				
+				$functionname = "get".ucwords($filecore);
+				// Add route
+				$routes = file_get_contents($fullpath."/app/Http/routes.php");
+				$newroutes = str_replace("Route::get('/', 'WelcomeController@index');", "Route::get('/', 'WelcomeController@index');
+	Route::get('$filecore', 'PagesController@$functionname');", $routes);
+				file_put_contents($fullpath."/app/Http/routes.php", $newroutes);
 
+				// Add controller function
+				$pagescontroller = file_get_contents($fullpath."/app/Http/Controllers/PagesController.php");
+				$new_pagescontroller = str_replace("// Custom routes below", "// Custom routes below
+	function $functioname() {
+		return view('$filecore');
+	}", $pagescontroller);
+				file_put_contents($fullpath."/app/Http/Controllers/PagesController.php", $new_pagescontroller);
+				break;
+		}
+	}
+	$app_template = file_get_contents($fullpath."/resources/templates/app.blade.php");
+	$new_app_template = str_replace("[JSFILES]", $jsfile_links, $app_template);
+	file_put_contents($fullpath."/resources/templates/app.blade.php", $new_app_template);
+	
 	// ===================================> REFERENCE ARRAYS - SINGULAR NAMES (i.e. bills, Bill)
 	$routes = [];
 	$singular_objects = [];
@@ -362,35 +437,37 @@ function createProject ($projectname, $projectfile, $extra) {
 
 	// ===================================> STANDARD WELCOME PAGE
 	$welcome = file_get_contents($fullpath."/resources/templates/welcome.blade.php");
-	foreach ($project_array["STANDARDWELCOME"]['replace'] as $find_replace) {
-		$find_replace_arr = explode("|", $find_replace);
-		$find = trim($find_replace_arr[0]);
-		$replace = trim($find_replace_arr[1]);
-		$welcome = str_replace("[".strtoupper($find)."]", $replace, $welcome);
-	}
-	$section_str = "";
-	foreach ($project_array["STANDARDWELCOME"]['sections'] as $key => $section_title_content) {
-		$section_title_content_arr = explode("|", $section_title_content);
-		$title = trim($section_title_content_arr[0]);
-		$content = trim($section_title_content_arr[1]);
-		$section_background = $key % 3;
-		if ($key % 2 == 0) {
-			$section_str .= "<div class=\"section-background-$section_background\">
-				<div class=\"row section section-background-$section_background\">
-					<div class=\"section-title columns small-12 medium-5\">$title</div>
-					<div class=\"section-content columns small-12 medium-7\">$content</div>
-				</div>
-			</div>";
-		} else {
-			$section_str .= "<div class=\"section-background-$section_background\">
-				<div class=\"row section\">
-					<div class=\"section-content columns small-12 medium-7\">$content</div>
-					<div class=\"section-title columns small-12 medium-5\">$title</div>
-				</div>
-			</div>";
+	if (isset($project_array['STANDARDWELCOME'])) {
+		foreach ($project_array["STANDARDWELCOME"]['replace'] as $find_replace) {
+			$find_replace_arr = explode("|", $find_replace);
+			$find = trim($find_replace_arr[0]);
+			$replace = trim($find_replace_arr[1]);
+			$welcome = str_replace("[".strtoupper($find)."]", $replace, $welcome);
 		}
+		$section_str = "";
+		foreach ($project_array["STANDARDWELCOME"]['sections'] as $key => $section_title_content) {
+			$section_title_content_arr = explode("|", $section_title_content);
+			$title = trim($section_title_content_arr[0]);
+			$content = trim($section_title_content_arr[1]);
+			$section_background = $key % 3;
+			if ($key % 2 == 0) {
+				$section_str .= "<div class=\"section-background-$section_background\">
+					<div class=\"row section section-background-$section_background\">
+						<div class=\"section-title columns small-12 medium-5\">$title</div>
+						<div class=\"section-content columns small-12 medium-7\">$content<br><a href=\"\" class=\"button\">Learn More</a></div>
+					</div>
+				</div>";
+			} else {
+				$section_str .= "<div class=\"section-background-$section_background\">
+					<div class=\"row section\">
+						<div class=\"section-content columns small-12 medium-7\">$content<br><a href=\"\" class=\"button\">Learn More</a></div>
+						<div class=\"section-title columns small-12 medium-5\">$title</div>
+					</div>
+				</div>";
+			}
+		}
+		$welcome = str_replace("[SECTIONS]", $section_str, $welcome);
 	}
-	$welcome = str_replace("[SECTIONS]", $section_str, $welcome);
 	file_put_contents($fullpath."/resources/templates/welcome.blade.php", $welcome);
 
 	// ===================================> TABLE SEEDER USING FAKER
@@ -399,27 +476,29 @@ function createProject ($projectname, $projectfile, $extra) {
 	$singular_objects['users'] = "User";
 	$table_seeder_calls = "";
 	$baseseeder = file_get_contents($startdirectory."/velerator_files/database/TableSeeder.php");
-	foreach ($project_array['FAKEDATA'] as $object_and_count => $fields) {
-		$obj_cnt_arr = explode(" ", $object_and_count);
-		$object = $obj_cnt_arr[0];
+	if (isset($project_array['FAKEDATA'])) {
+		foreach ($project_array['FAKEDATA'] as $object_and_count => $fields) {
+			$obj_cnt_arr = explode(" ", $object_and_count);
+			$object = $obj_cnt_arr[0];
 
-		$fakerstr = "";
-		$count = $obj_cnt_arr[1];
-		foreach ($fields as $field_and_fakergen) {
-			$fakergen_arr = explode("|", $field_and_fakergen, 2);
-			$faker_field = trim($fakergen_arr[0]);
-			$faker_gen = trim($fakergen_arr[1]);
-			$fakerstr .= "'$faker_field' => ".'$faker->'.$faker_gen.",
-				";
+			$fakerstr = "";
+			$count = $obj_cnt_arr[1];
+			foreach ($fields as $field_and_fakergen) {
+				$fakergen_arr = explode("|", $field_and_fakergen, 2);
+				$faker_field = trim($fakergen_arr[0]);
+				$faker_gen = trim($fakergen_arr[1]);
+				$fakerstr .= "'$faker_field' => ".'$faker->'.$faker_gen.",
+					";
+			}
+			$singular = $singular_objects[$object];
+			$newseeder = str_replace('[NAME]', $singular, $baseseeder);
+			$newseeder = str_replace('[COUNT]', $count, $newseeder);
+			$newseeder = str_replace('[ARRAY]', $fakerstr, $newseeder);
+
+			file_put_contents($fullpath."/database/seeds/".$singular."TableSeeder.php", $newseeder);
+			$table_seeder_calls .= '$this'."->call('".$singular."TableSeeder');
+			";
 		}
-		$singular = $singular_objects[$object];
-		$newseeder = str_replace('[NAME]', $singular, $baseseeder);
-		$newseeder = str_replace('[COUNT]', $count, $newseeder);
-		$newseeder = str_replace('[ARRAY]', $fakerstr, $newseeder);
-
-		file_put_contents($fullpath."/database/seeds/".$singular."TableSeeder.php", $newseeder);
-		$table_seeder_calls .= '$this'."->call('".$singular."TableSeeder');
-		";
 	}
 	$database_seeder_master = file_get_contents($fullpath."/database/seeds/DatabaseSeeder.php");
 	$new_dbseed_master = str_replace('// $this'."->call('UserTableSeeder');", $table_seeder_calls, $database_seeder_master);
@@ -597,6 +676,22 @@ function createArrayFromFile($projectfile) {
 	}
 	//print_r($finalarray);
 	return $finalarray;
+}
+function addProvider($val) {
+	global $fullpath;
+	$config_app = file_get_contents($fullpath."/config/app.php");
+	$new_config_app = str_replace("'providers' => [", "'providers' => [
+		'$val',", $config_app);
+	file_put_contents($fullpath."/config/app.php", $new_config_app);
+}
+function addFacade($val) {
+	$val_arr = explode("\\", $val);
+	$alias = $val_arr[count($val_arr) - 1];
+	global $fullpath;
+	$config_app = file_get_contents($fullpath."/config/app.php");
+	$new_config_app = str_replace("'aliases' => [", "'aliases' => [
+		'$alias' => '$val',", $config_app);
+	file_put_contents($fullpath."/config/app.php", $new_config_app);
 }
 function addFieldArrayToCreateSchema($edit_table, $field_array) {
 	global $startdirectory, $fullpath;
