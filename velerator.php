@@ -175,22 +175,10 @@ function createProject ($projectname, $projectfile, $extra) {
 					$file_str .= $emmet."
 	";
 				}
-				file_put_contents($fullpath."/resources/templates/".$filename, $file_str);
-				
-				$functionname = "get".ucwords($filecore);
-				// Add route
-				$routes = file_get_contents($fullpath."/app/Http/routes.php");
-				$newroutes = str_replace("Route::get('/', 'WelcomeController@index');", "Route::get('/', 'WelcomeController@index');
-Route::get('$filecore', 'PagesController@$functionname');", $routes);
-				file_put_contents($fullpath."/app/Http/routes.php", $newroutes);
-
-				// Add controller function
-				$pagescontroller = file_get_contents($fullpath."/app/Http/Controllers/PagesController.php");
-				$new_pagescontroller = str_replace("// Custom routes below", "// Custom routes below
-	function $functionname() {
-		return view('$filecore');
-	}", $pagescontroller);
-				file_put_contents($fullpath."/app/Http/Controllers/PagesController.php", $new_pagescontroller);
+				$generic_page = file_get_contents($startdirectory."/velerator_files/templates/page.blade.php");
+				$newpage = str_replace("[TITLE]", ucwords($filecore), $generic_page);
+				$newpage = str_replace("[CONTENT]", $file_str, $newpage);
+				file_put_contents($fullpath."/resources/templates/".$filename, $newpage);
 				break;
 		}
 	}
@@ -216,12 +204,27 @@ Route::get('$filecore', 'PagesController@$functionname');", $routes);
 	$navs = [];
 	foreach ($project_array['NAVIGATION'] as $path => $subpath) {
 		$path_arr = explode(" | ", $path);
-		$visible = $path_arr[0];
+		$visible = trim($path_arr[0]);
 		$view = "";
 		if (isset($path_arr[1])) {
 			$view = $path_arr[1];
 		}
 		$navs[$visible] = $view;
+		$functionname = "get".ucwords($view);
+				// Add route
+				$routes = file_get_contents($fullpath."/app/Http/routes.php");
+				$newroutes = str_replace("Route::get('/', 'WelcomeController@index');", "Route::get('/', 'WelcomeController@index');
+Route::get('$view', 'PagesController@$functionname');", $routes);
+				file_put_contents($fullpath."/app/Http/routes.php", $newroutes);
+
+				// Add controller function
+				$pagescontroller = file_get_contents($fullpath."/app/Http/Controllers/PagesController.php");
+				$new_pagescontroller = str_replace("// Custom routes below", "// Custom routes below
+	function $functionname() {
+		return view('$view');
+	}", $pagescontroller);
+				file_put_contents($fullpath."/app/Http/Controllers/PagesController.php", $new_pagescontroller);
+				
 	}
 	createNavigationFile($navs);
 
@@ -242,19 +245,22 @@ Route::get('$filecore', 'PagesController@$functionname');", $routes);
 
 	// ===================================> MIGRATIONS, SCHEMA, MODELS
 	echo "Creating migrations...\n";
+
+	$fillable_array = [];
 		
 	foreach ($project_array['OBJECTS'] as $object_and_singular => $fields_arr) {
 		$obj_sin_arr = explode(" ", $object_and_singular);
 		$object = $obj_sin_arr[0];
 		$singular = $obj_sin_arr[1];
+		$fillable_array[$singular] = "";
 		// Create Migration
 		shell_exec("php artisan make:migration --create=$object create_".$object."_table");
 		
 		$allfields_arr = [];
-		$fillable_str = '';
 		$once = 1;
 		foreach ($fields_arr as $field_str) {
 			$fieldtype = "string";  // Default is string if blank
+			$fieldfunction = "";
 			$secondarytable = "";
 			$thisfield_arr = explode(" ", $field_str);
 
@@ -264,10 +270,10 @@ Route::get('$filecore', 'PagesController@$functionname');", $routes);
 				continue;
 			} else {
 				if ($once) {
-					$fillable_str .= "'$fieldname'";
+					$fillable_array[$singular] .= "'$fieldname'";
 					$once = 0;
 				} else {
-					$fillable_str .= ",'$fieldname'";
+					$fillable_array[$singular] .= ",'$fieldname'";
 				}
 				
 				if (strpos($fieldname, "_id") > 0) {
@@ -279,10 +285,14 @@ Route::get('$filecore', 'PagesController@$functionname');", $routes);
 					$fieldtype = "date";
 				} else if (count($thisfield_arr) == 2) {
 					$fieldtype = $thisfield_arr[1];
+				} else if (count($thisfield_arr) == 3) {
+					$fieldtype = $thisfield_arr[1];
+					$fieldfunction = $thisfield_arr[2];
 				}
 				$tempfield_arr = [];
 				$tempfield_arr['name'] = $fieldname;
 				$tempfield_arr['type'] = $fieldtype;
+				$tempfield_arr['function'] = $fieldfunction;
 				$tempfield_arr['secondary'] = $secondarytable;
 				$allfields_arr[] = $tempfield_arr;
 			}
@@ -351,7 +361,7 @@ Route::get('$filecore', 'PagesController@$functionname');", $routes);
 		$generic_model = file_get_contents($startdirectory."/velerator_files/Model.php");
 		$newmodel = str_replace("[NAME]", $singular, $generic_model);
 		$newmodel = str_replace("[TABLE]", $object, $newmodel);
-		$newmodel = str_replace("[FILLABLE_ARRAY]", "[$fillable_str]", $newmodel);
+		$newmodel = str_replace("[FILLABLE_ARRAY]", "[".$fillable_array[$singular]."]", $newmodel);
 		$newmodel = str_replace("[HIDDEN_ARRAY]", '[]', $newmodel);
 		file_put_contents($fullpath."/app/".$singular.".php", $newmodel);
 	}
@@ -702,6 +712,9 @@ function addFieldArrayToCreateSchema($edit_table, $field_array) {
 		$name = $field_vals['name'];
 		$secondarytable = $field_vals['secondary'];
 		$after_function = "";
+		if ($function = $field_vals['function']) {
+			$after_function = "->$function()";
+		}
 
 		if ($type == 'integer') {
 			$type = 'unsignedInteger';

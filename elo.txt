@@ -1,7 +1,7 @@
 OBJECTS
 	photos Photo
 		file
-		elo
+		elo integer nullable
 	matches Match
 		photo1_id
 		photo2_id
@@ -14,8 +14,8 @@ NAVIGATION
 
 STANDARDWELCOME
 	replace
-		image | nature
-		imagebox | people
+		image | sports
+		imagebox | sports
 		tagline | The simplest, fastest way to rank anything
 		box1 | Play Elo
 		box1quote | The game is simple: Just choose between two things.
@@ -34,6 +34,12 @@ CREATEFILES
 	elo.js
 		.match img,.match .btn | click
 	play.blade.php
-		.row.match*3>.columns.medium-5.small-12>img^.columns.medium-2.small-12>.btn^.columns.medium-5.small-12
+		.row>.columns.small-12>p>{You are on match #}
+	sections/match.blade.php
+		.row.match>.columns.medium-5.small-12>img^.columns.medium-2.small-12>.btn^.columns.medium-5.small-12>img
 	rankings.blade.php
 		.row>.columns.small-12.medium-4>img^.columns.small-12.medium-8
+
+FAKEDATA
+	photos 24
+		file | imageUrl($width = 600, $height = 400, 'people')
