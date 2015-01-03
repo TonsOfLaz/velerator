@@ -1,4 +1,4 @@
-<?php 
+ <?php 
 
 global $fullpath,$startdirectory;
 
@@ -44,6 +44,8 @@ function createProject ($projectname, $projectfile, $extra) {
 		echo "Reverting to a clean install...\n";
 		$quickreset = true;
 		chdir($fullpath);
+		shell_exec("git stash");
+
 		$resp = shell_exec("git log --pretty=format:'%h' --reverse | head -1");
 		shell_exec("git reset --hard $resp");
 		shell_exec("git clean -fd");
@@ -123,6 +125,7 @@ function createProject ($projectname, $projectfile, $extra) {
 	shell_exec("cp $startdirectory/velerator_files/templates/all.blade.php $fullpath/resources/templates/pages/all.blade.php");
 	shell_exec("cp $startdirectory/velerator_files/templates/single.blade.php $fullpath/resources/templates/pages/single.blade.php");
 	shell_exec("cp $startdirectory/velerator_files/.env $fullpath/.env");
+	shell_exec("cp $startdirectory/velerator_files/.gitignore $fullpath/.gitignore");
 	shell_exec("cp $startdirectory/velerator_files/foundation/css/*.css $fullpath/public/assets/css");
 	shell_exec("cp $startdirectory/velerator_files/css/*.css $fullpath/public/assets/css");
 	shell_exec("cp $startdirectory/velerator_files/js/*.js $fullpath/public/assets/js");
@@ -175,9 +178,14 @@ function createProject ($projectname, $projectfile, $extra) {
 					$file_str .= $emmet."
 	";
 				}
-				$generic_page = file_get_contents($startdirectory."/velerator_files/templates/page.blade.php");
-				$newpage = str_replace("[TITLE]", ucwords($filecore), $generic_page);
-				$newpage = str_replace("[CONTENT]", $file_str, $newpage);
+				if (strpos("a".$filecore, "sections/") > 0) {
+					$newpage = $file_str;
+				} else {
+					$generic_page = file_get_contents($startdirectory."/velerator_files/templates/page.blade.php");
+					$newpage = str_replace("[TITLE]", ucwords($filecore), $generic_page);
+					$newpage = str_replace("[CONTENT]", $file_str, $newpage);
+				}
+				
 				file_put_contents($fullpath."/resources/templates/".$filename, $newpage);
 				break;
 		}
@@ -187,6 +195,7 @@ function createProject ($projectname, $projectfile, $extra) {
 	file_put_contents($fullpath."/resources/templates/app.blade.php", $new_app_template);
 	
 	// ===================================> REFERENCE ARRAYS - SINGULAR NAMES (i.e. bills, Bill)
+
 	$routes = [];
 	$singular_objects = [];
 	foreach ($project_array['OBJECTS'] as $object_and_singular => $fields) {
@@ -526,6 +535,14 @@ Route::get('$view', 'PagesController@$functionname');", $routes);
 	echo "Final git commit...\n";
 	shell_exec("git add .");  
 	shell_exec("git commit -am 'Velerator has run on file ".$projectfile."'");
+
+	// ===================================> BRING BACK CUSTOM CHANGES YOU MADE
+	shell_exec("git branch -D stasher");
+	shell_exec("git branch stasher");
+	shell_exec("git checkout stasher");
+	shell_exec("git merge --squash --strategy-option=theirs stash");
+	shell_exec("git checkout master");
+	//shell_exec("git merge -Xours stasher");
 	
 	// ===================================> FINISHED
 	echo "Project created.\n";

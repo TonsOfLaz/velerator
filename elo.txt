@@ -1,6 +1,7 @@
 OBJECTS
 	photos Photo
 		file
+		date
 		elo integer nullable
 	matches Match
 		photo1_id
@@ -32,14 +33,16 @@ PACKAGES
 
 CREATEFILES
 	elo.js
-		.match img,.match .btn | click
+		.match img,.match .button | run
 	play.blade.php
 		.row>.columns.small-12>p>{You are on match #}
+		@include('sections.match')
 	sections/match.blade.php
-		.row.match>.columns.medium-5.small-12>img^.columns.medium-2.small-12>.btn^.columns.medium-5.small-12>img
+		.row.match>.columns.medium-5.small-12>img[src=http://lorempixel.com/600/400/people/3]^.columns.medium-2.small-12>.button>{Tie}^^.columns.medium-5.small-12>img[src=http://lorempixel.com/600/400/people/4]
 	rankings.blade.php
 		.row>.columns.small-12.medium-4>img^.columns.small-12.medium-8
 
 FAKEDATA
 	photos 24
 		file | imageUrl($width = 600, $height = 400, 'people')
+		date | date
