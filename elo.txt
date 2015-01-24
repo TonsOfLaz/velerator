@@ -1,15 +1,42 @@
 OBJECTS
+	albums Album
+		type
+		name
+		public
+		user_id
 	photos Photo
 		file
+		height integer nullable
+		width integer nullable
 		date
 		elo integer nullable
+		collection_id
 	matches Match
 		photo1_id
 		photo2_id
+		photo1_elo
+		photo2_elo
 		winner
 		ip
+		user_id integer nullable
+	labels Label
+		name
+		user_id
 
+RELATIONSHIPS
+	Photo
+		belongsToMany Label
+	Album
+		hasMany Photo
+	User
+		hasMany Match
+		hasMany Label
+		hasMany Album
+	Match
+		belongsTo Photo | photo1_id photo2_id
+	
 NAVIGATION
+	My Albums | albums
 	Play Elo | play
 	Rankings | rankings
 
@@ -17,7 +44,7 @@ STANDARDWELCOME
 	replace
 		image | sports
 		imagebox | sports
-		tagline | The simplest, fastest way to rank anything
+		tagline | The easiest way to rank your photo collections
 		box1 | Play Elo
 		box1quote | The game is simple: Just choose between two things.
 		box2 | Check rankings
@@ -33,16 +60,9 @@ PACKAGES
 
 CREATEFILES
 	elo.js
-		.match img,.match .button | run
 	play.blade.php
-		.row>.columns.small-12>p>{You are on match #}
-		@include('sections.match')
-	sections/match.blade.php
-		.row.match>.columns.medium-5.small-12>img[src=http://lorempixel.com/600/400/people/3]^.columns.medium-2.small-12>.button>{Tie}^^.columns.medium-5.small-12>img[src=http://lorempixel.com/600/400/people/4]
+	sections/match_tall_tall.blade.php
+	sections/match_tall_wide.blade.php
+	sections/match_wide_tall.blade.php
+	sections/match_wide_wide.blade.php
 	rankings.blade.php
-		.row>.columns.small-12.medium-4>img^.columns.small-12.medium-8
-
-FAKEDATA
-	photos 24
-		file | imageUrl($width = 600, $height = 400, 'people')
-		date | date
