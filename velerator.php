@@ -27,7 +27,11 @@ class Velerator {
 		echo "project_files = "			.$this->project_files."\n";
 		echo "project_config_file = "	.$this->project_config_file."\n";
 
-		if ($this->appDirectoryDoesntExist() || $this->extra_command == "clean") {
+		if ($this->extra_command == "clean") {
+			$this->clearExistingAppDirectory();
+		}
+
+		if ($this->appDirectoryDoesntExist()) {
 			$this->brand_new_install = true;
 			$this->buildFreshLaravelInstallWithPackages();
 		} else {
@@ -59,7 +63,7 @@ class Velerator {
 		
 		// Optional files for views
 		$this->project_files = "";
-		$project_file_root = explode(".", $this->project_file)[0];
+		$project_file_root = explode(".", $this->project_config_file)[0];
 		if (is_dir($project_file_root."_files")) {
 			$this->project_files = $this->velerator_path."/".$project_file_root."_files";
 		}
@@ -87,7 +91,7 @@ class Velerator {
 			echo "Adding 'Faker' tool...\n";
 			shell_exec("composer require fzaninotto/faker");
 		}
-		foreach ($project_config_array['PACKAGES'] as $name => $package_settings) {
+		foreach ($this->project_config_array['PACKAGES'] as $name => $package_settings) {
 			echo "Adding '$name' tool...\n";
 			shell_exec("composer require $name");
 			foreach ($package_settings as $key => $type_value) {
@@ -118,6 +122,11 @@ class Velerator {
 		shell_exec("git clean -fd");
 	}
 
+	public function clearExistingAppDirectory() {
+		echo "Clearing existing directory...\n";
+		shell_exec("rm -rf ".$this->full_app_path);
+		echo "Done deleting ".$this->project_name."\n";
+	}
 	public function createProjectArray() {
 		$filetext = file_get_contents("./".$this->project_config_file);
 		$delimiter = "\n";
