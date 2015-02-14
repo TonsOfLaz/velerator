@@ -4,17 +4,14 @@ class Velerator {
 
 	private $full_app_path;
 	private $velerator_path;
-
 	private $project_name;
 	private $project_files;
 	private $project_config_file;
 	private $project_config_array;
-
 	private $brand_new_install;
 	private $extra_command;
 
 	public function __construct($argv) {
-		// Up to 3 arguments passed to this file
 		// 1: project name
 		// 2: project config file
 		// 3: extra command (clear)
@@ -27,7 +24,7 @@ class Velerator {
 		echo "project_files = "			.$this->project_files."\n";
 		echo "project_config_file = "	.$this->project_config_file."\n";
 
-		if ($this->extra_command == "clean") {
+		if ($this->extra_command == "clear") {
 			$this->clearExistingAppDirectory();
 		}
 
@@ -76,12 +73,17 @@ class Velerator {
 	public function appDirectoryDoesntExist() {
 		return !is_dir($this->full_app_path);
 	}
+	public function clearExistingAppDirectory() {
+		echo "Clearing existing directory...\n";
+		shell_exec("rm -rf ".$this->full_app_path);
+		echo "Done deleting ".$this->project_name."\n";
+	}
 
 	public function buildFreshLaravelInstallWithPackages() {
 
 		echo "Creating Laravel project...\n";
-		//shell_exec("laravel new ".$projectname);
-		shell_exec("composer --no-interaction create-project laravel/laravel ".$this->project_name." dev-develop");
+		shell_exec("laravel new ".$this->project_name);
+		//shell_exec("composer --no-interaction create-project laravel/laravel ".$this->project_name." dev-develop");
 		echo "Laravel project ".$this->project_name." created.\n";
 
 		// ===================================> ADD COMPOSER TOOLS
@@ -111,22 +113,9 @@ class Velerator {
 	}
 
 	public function revertToExistingLaravelInstall() {
-		// Instead of creating a new project, we just reset git to a fresh project install
-		// This speeds up running it and stops tasking the composer servers
-		echo "Reverting to a clean install...\n";
-		chdir($this->full_app_path);
-		shell_exec("git stash");
 
-		$resp = shell_exec("git log --pretty=format:'%h' --reverse | head -1");
-		shell_exec("git reset --hard $resp");
-		shell_exec("git clean -fd");
 	}
-
-	public function clearExistingAppDirectory() {
-		echo "Clearing existing directory...\n";
-		shell_exec("rm -rf ".$this->full_app_path);
-		echo "Done deleting ".$this->project_name."\n";
-	}
+	
 	public function createProjectArray() {
 		$filetext = file_get_contents("./".$this->project_config_file);
 		$delimiter = "\n";

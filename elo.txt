@@ -1,4 +1,4 @@
-OBJECTS
+DBMODELS
 	albums Album
 		type
 		name
