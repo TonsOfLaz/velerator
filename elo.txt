@@ -10,7 +10,7 @@ DBMODELS
 		width integer nullable
 		date
 		elo integer nullable
-		collection_id collections
+		album_id albums
 	matches Match
 		photo1_id photos
 		photo2_id photos
@@ -35,13 +35,51 @@ RELATIONSHIPS
 		hasMany Label
 		hasMany Album
 	Match
-		belongsTo Photo | photo1_id photo2_id
+		belongsTo Photo photo1
+		belongsTo Photo photo2
 		belongsTo User
-	
+	Label
+		belongsToMany Photo
+		belongsTo User
+
+PACKAGES
+	intervention/image
+		provider | Intervention\Image\ImageServiceProvider
+		alias | Intervention\Image\Facades\Image
+
+FAKEDATA
+	users 20
+		name | name
+		email | email
+		password | userName
+	albums 50
+		type | randomElement($array = array ('Instagram','Local','Web'))
+		name | company
+		public | boolean
+		user_id | numberBetween($min = 1, $max = 20)
+	photos 200
+		file | imageUrl($width = 800, $height = 600)
+		height | numberBetween($min = 600, $max = 600)
+		width | numberBetween($min = 800, $max = 800)
+		date | dateTimeThisYear($max = 'now')
+		album_id |  numberBetween($min = 1, $max = 50)
+	labels 20
+		name | catchPhrase
+		user_id | numberBetween($min = 1, $max = 20)
+
 NAVIGATION
 	My Albums | albums
 	Play Elo | play
 	Rankings | rankings
+
+CREATEFILES
+	elo.js
+	play.blade.php
+	sections/match_tall_tall.blade.php
+	sections/match_tall_wide.blade.php
+	sections/match_wide_tall.blade.php
+	sections/match_wide_wide.blade.php
+	rankings.blade.php
 
 STANDARDWELCOME
 	replace
@@ -56,16 +94,3 @@ STANDARDWELCOME
 		box3quote | The more you play, the more accurate the rankings.
 	sections
 
-PACKAGES
-	intervention/image
-		provider | Intervention\Image\ImageServiceProvider
-		alias | Intervention\Image\Facades\Image
-
-CREATEFILES
-	elo.js
-	play.blade.php
-	sections/match_tall_tall.blade.php
-	sections/match_tall_wide.blade.php
-	sections/match_wide_tall.blade.php
-	sections/match_wide_wide.blade.php
-	rankings.blade.php

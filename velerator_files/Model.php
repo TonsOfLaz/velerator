@@ -25,4 +25,6 @@ class [NAME] extends Model {
 	 */
 	protected $hidden = [HIDDEN_ARRAY];
 
+	[RELATIONSHIPS]
+
 }

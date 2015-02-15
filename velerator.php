@@ -48,9 +48,15 @@ class Velerator {
 		shell_exec("git branch velerator_generated");
 		shell_exec("git checkout velerator_generated");
 
-		//print_r($this->project_config_array);
+		$this->initializeDatabase();
+		shell_exec("cp ".$this->velerator_path."/velerator_files/.env ".$this->full_app_path."/.env");
+		shell_exec("cp ".$this->velerator_path."/velerator_files/.gitignore ".$this->full_app_path."/.gitignore");
+
 		$this->velerateDBMODELS();
 		$this->velerateRELATIONSHIPS();
+		shell_exec("php artisan migrate");
+		$this->velerateROUTECONTROLLERS();
+		$this->createAndRunSeedFiles();
 
 		shell_exec("git add .");
 		shell_exec("git commit -am 'Velerator files generated ".time()."'");
@@ -61,7 +67,7 @@ class Velerator {
 
 		shell_exec("git rebase --onto velerator_generated velerator_fresh_install_packages master");
 
-		print_r($this->singular_models);
+		//print_r($this->singular_models);
 	}
 
 
@@ -100,6 +106,59 @@ class Velerator {
 		echo "project_files = "			.$this->project_files."\n";
 		echo "project_config_file = "	.$this->project_config_file."\n";
 
+	}
+
+	public function initializeDatabase() {
+		shell_exec("touch ".$this->full_app_path."/storage/database.sqlite");
+		$local_db_config = file_get_contents($this->full_app_path."/config/database.php");
+		/*
+		$new_db_config = str_replace("'host'      => 'localhost'", "'host'      => ".'$_ENV'."['DB_HOST']", $local_db_config);
+		$new_db_config = str_replace("'database'  => 'forge'", "'database'  => ".'$_ENV'."['DB_DATABASE']", $new_db_config);
+		$new_db_config = str_replace("'username'  => 'forge'", "'username'  => ".'$_ENV'."['DB_USERNAME']", $new_db_config);
+		$new_db_config = str_replace("'password'  => ''", "'password'  => ".'$_ENV'."['DB_PASSWORD']", $new_db_config);
+		*/
+
+		$new_db_config = str_replace("'default' => 'mysql',", "'default' => 'sqlite',", $local_db_config);
+		file_put_contents($this->full_app_path."/config/database.php", $new_db_config);
+	}
+
+	public function createAndRunSeedFiles() {
+		echo "Creating table seeders...\n";
+		$table_seeder_calls = "";
+		$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
+		if (isset($this->project_config_array['FAKEDATA'])) {
+			foreach ($this->project_config_array['FAKEDATA'] as $object_and_count => $fields) {
+				$obj_cnt_arr = explode(" ", $object_and_count);
+				$object = $obj_cnt_arr[0];
+
+				$fakerstr = "";
+				$count = $obj_cnt_arr[1];
+				foreach ($fields as $field_and_fakergen) {
+					$fakergen_arr = explode("|", $field_and_fakergen, 2);
+					$faker_field = trim($fakergen_arr[0]);
+					$faker_gen = trim($fakergen_arr[1]);
+					$fakerstr .= "'$faker_field' => ".'$faker->'.$faker_gen.",
+				";
+				}
+				$singular = $this->singular_models[$object];
+				$newseeder = str_replace('[NAME]', $singular, $baseseeder);
+				$newseeder = str_replace('[COUNT]', $count, $newseeder);
+				$newseeder = str_replace('[ARRAY]', $fakerstr, $newseeder);
+
+				file_put_contents($this->full_app_path."/database/seeds/".$singular."TableSeeder.php", $newseeder);
+				$table_seeder_calls .= '$this'."->call('".$singular."TableSeeder');
+		";
+			}
+		}
+		$database_seeder_master = file_get_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php");
+		$new_dbseed_master = str_replace('// $this'."->call('UserTableSeeder');", $table_seeder_calls, $database_seeder_master);
+		file_put_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php", $new_dbseed_master);
+
+
+		shell_exec("composer dump-autoload");
+
+		echo "Running seeders...\n";
+		shell_exec("php artisan db:seed");
 	}
 
 	// ==========================================================
@@ -145,6 +204,8 @@ class Velerator {
 	public function velerateDBMODELS() {
 		$fillable_array = [];
 		
+		// Schema
+
 		foreach ($this->project_config_array['DBMODELS'] as $object_and_singular => $fields_arr) {
 			$obj_sin_arr = explode(" ", $object_and_singular);
 			$object = $obj_sin_arr[0];
@@ -203,12 +264,14 @@ class Velerator {
 
 		foreach ($this->singular_models as $object => $singular) {
 			// Create Model
-			$generic_model = file_get_contents($this->velerator_path."/velerator_files/Model.php");
-			$newmodel = str_replace("[NAME]", $singular, $generic_model);
-			$newmodel = str_replace("[TABLE]", $object, $newmodel);
-			$newmodel = str_replace("[FILLABLE_ARRAY]", "[".$fillable_array[$singular]."]", $newmodel);
-			$newmodel = str_replace("[HIDDEN_ARRAY]", '[]', $newmodel);
-			file_put_contents($this->full_app_path."/app/".$singular.".php", $newmodel);
+			if ($singular != "User") {
+				$generic_model = file_get_contents($this->velerator_path."/velerator_files/Model.php");
+				$newmodel = str_replace("[NAME]", $singular, $generic_model);
+				$newmodel = str_replace("[TABLE]", $object, $newmodel);
+				$newmodel = str_replace("[FILLABLE_ARRAY]", "[".$fillable_array[$singular]."]", $newmodel);
+				$newmodel = str_replace("[HIDDEN_ARRAY]", '[]', $newmodel);
+				file_put_contents($this->full_app_path."/app/".$singular.".php", $newmodel);
+			}
 		}
 	}
 
@@ -220,8 +283,10 @@ class Velerator {
 			$name = $field_vals['name'];
 			$secondarytable = $field_vals['secondary'];
 			$after_function = "";
-			if ($function = $field_vals['function']) {
-				$after_function = "->$function()";
+			if (isset($field_vals['function'])) {
+				if ($function = $field_vals['function']) {
+					$after_function = "->$function()";
+				}
 			}
 
 			if ($type == 'integer') {
@@ -249,6 +314,176 @@ class Velerator {
 
 	public function velerateRELATIONSHIPS() {
 		// Pivot tables and Model relationships
+		$pivot_tables = [];
+
+		foreach ($this->singular_models as $table => $model) {
+			$function_str = "";
+			if (isset($this->project_config_array['RELATIONSHIPS'][$model])) {
+				$relationships = $this->project_config_array['RELATIONSHIPS'][$model];
+			} else {
+				$relationships = [];
+			}
+			foreach ($relationships as $relationship_str) {
+				$relationship_arr = explode(" ", trim($relationship_str));
+				$relationship_type = $relationship_arr[0];
+				$relationship_model = $relationship_arr[1];
+				$relationship_field = "";
+				if (count($relationship_arr) > 2) {
+					$relationship_field = $relationship_arr[2];
+				}
+
+				switch ($relationship_type) {
+					case 'hasOne':
+						$function_name = strtolower($relationship_model);
+						$function_str .= $this->getSimpleRelationshipFunction($function_name, 
+																		$relationship_model, 
+																		$relationship_type,
+																		$relationship_field);
+						break;
+					case 'belongsTo':
+						$function_name = strtolower($relationship_model);
+						$function_str .= $this->getSimpleRelationshipFunction($function_name, 
+																		$relationship_model, 
+																		$relationship_type,
+																		$relationship_field);
+						break;
+					case 'hasMany':
+						$function_name = $this->getTableFromModelName($relationship_model);
+						$function_str .= $this->getSimpleRelationshipFunction($function_name, 
+																		$relationship_model, 
+																		$relationship_type,
+																		$relationship_field);
+						if (strcmp($relationship_model, $model) < 0) {
+							$pivot_tables[$relationship_model."_".$model] = 1;
+						} else {
+							$pivot_tables[$model."_".$relationship_model] = 1;
+						}
+						
+						break;
+					case 'belongsToMany':
+						$function_name = $this->getTableFromModelName($relationship_model);
+						$function_str .= $this->getSimpleRelationshipFunction($function_name, 
+																		$relationship_model, 
+																		$relationship_type,
+																		$relationship_field);
+						if (strcmp($relationship_model, $model) < 0) {
+							$pivot_tables[$relationship_model."_".$model] = 1;
+						} else {
+							$pivot_tables[$model."_".$relationship_model] = 1;
+						}
+						break;
+					case 'hasManyThrough':
+						break;
+					case 'morphTo':
+						break;
+					case 'morphMany':
+						break;
+					case 'morphToMany':
+						break;
+					case 'morphedByMany':
+						break;
+				}
+
+			}
+			$model_file = file_get_contents($this->full_app_path."/app/".$model.".php");
+
+			if ($model == "User") {
+				$lastfunc = "protected ".'$hidden'." = ['password', 'remember_token'];";
+				$new_model_file = str_replace($lastfunc, $lastfunc."
+	".$function_str, $model_file);
+			} else {
+				$new_model_file = str_replace("[RELATIONSHIPS]", $function_str, $model_file);
+			}
+			file_put_contents($this->full_app_path."/app/".$model.".php", $new_model_file);
+			
+			
+
+		}
+		//print_r($pivot_tables);
+		foreach ($pivot_tables as $pivot_table => $dud) {
+			$pivot_table_name = strtolower($pivot_table);
+			shell_exec("php artisan make:migration --create=$pivot_table_name create_".$pivot_table_name."_table");
+			$pivot_arr = explode("_", $pivot_table);
+			$model_one = $pivot_arr[0];
+			$model_two = $pivot_arr[1];
+			$primary_field = strtolower($model_one)."_id";
+			$secondary_field = strtolower($model_two)."_id";
+			$primary_arr = [];
+			$primary_arr['name'] = $primary_field;
+			$primary_arr['type'] = "integer";
+			$primary_arr['secondary'] = $this->getTableFromModelName($model_one);
+			$secondary_arr = [];
+			$secondary_arr['name'] = $secondary_field;
+			$secondary_arr['type'] = "integer";
+			$secondary_arr['secondary'] = $this->getTableFromModelName($model_two);
+			$linkfields_arr = [];
+			$linkfields_arr[] = $primary_arr;
+			$linkfields_arr[] = $secondary_arr;
+			$this->addFieldArrayToCreateSchema($pivot_table_name, $linkfields_arr);
+		}
+	}
+	public function velerateROUTECONTROLLERS() {
+		$oldroutes = file_get_contents($this->full_app_path."/app/Http/routes.php");
+
+		$routestr = "";
+		$controllerstr = "";
+		foreach ($this->singular_models as $table => $singular) {
+			$singular_lower = strtolower($singular);
+			$capstable = ucfirst($table);
+			shell_exec("php artisan make:controller ".$capstable."Controller");
+
+			$thiscontroller = file_get_contents($this->full_app_path."/app/Http/Controllers/".$capstable."Controller.php");
+			$newcontroller = str_replace("use App\Http\Controllers\Controller;", 'use App\Http\Controllers\Controller;
+use App\\'.$singular.";", $thiscontroller);
+			file_put_contents($this->full_app_path."/app/Http/Controllers/".$capstable."Controller.php", $newcontroller);
+
+			// Include resource routes
+			$routestr .= "Route::resource('$table', '$capstable"."Controller');\n";
+
+			// Add resource functions
+			$controllerpath = "./app/Http/Controllers/".$capstable."Controller.php";
+			$this->replaceEmptyFunction($controllerpath, "index",  "$".$table." = ".$singular."::all();
+		return $".$table.";");
+			$this->replaceEmptyFunction($controllerpath, "create", 'return "Create '.$table.'";');
+			$this->replaceEmptyFunction($controllerpath, "store",  'return "Store '.$table.'";');
+			$this->replaceEmptyFunction($controllerpath, "show",   "$".$singular_lower." = ".$singular."::find(".'$id'.");
+		return $".$singular_lower.";");
+			$this->replaceEmptyFunction($controllerpath, "edit",   'return "Edit '.$table.' $id";');
+			$this->replaceEmptyFunction($controllerpath, "update", 'return "Update '.$table.' $id";');
+			$this->replaceEmptyFunction($controllerpath, "destroy",'return "Destroy '.$table.' $id";');
+		}
+
+		$replace = "Route::get('home', 'HomeController@index');";
+		$newroutes = str_replace($replace, $replace."\n".$routestr, $oldroutes);
+		file_put_contents("./app/Http/routes.php", $newroutes);
+
+	}
+	function replaceEmptyFunction($filepath, $function, $newcode) {
+		$originalfile = file_get_contents($filepath);
+		$startpos = strpos($originalfile, "function $function");
+		$tempstr = substr($originalfile, $startpos);
+		$endpos = strpos($tempstr, "}");
+		$functionfull = substr($originalfile, $startpos, $endpos+1);
+		$newfunc = str_replace("//", $newcode, $functionfull);
+		$finalfile = str_replace($functionfull, $newfunc, $originalfile);
+		file_put_contents($filepath, $finalfile);
+	}
+	public function getSimpleRelationshipFunction($function_name, $model, $type, $field) {
+		if ($field) {
+			$function_name = $field;
+			$model = $model."', '".$field."_id";
+		}
+		$str = "
+	public function $function_name()
+	{
+		return ".'$this'."->$type('$model');
+	}
+	";
+		return $str;
+	}
+	public function getTableFromModelName($model) {
+		$temparr = array_flip($this->singular_models);
+		return $temparr[$model];
 	}
 	
 	public function createProjectArray() {
