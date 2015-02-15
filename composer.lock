@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "intervention/image",
-            "version": "2.0.16",
+            "version": "2.1.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Intervention/image.git",
-                "reference": "b5350f62f59f8fa24f5d9c1ffbd094a7fd91c0e3"
+                "reference": "949d4909d24f9656877ac38f8c90aecbf0a65091"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Intervention/image/zipball/b5350f62f59f8fa24f5d9c1ffbd094a7fd91c0e3",
-                "reference": "b5350f62f59f8fa24f5d9c1ffbd094a7fd91c0e3",
+                "url": "https://api.github.com/repos/Intervention/image/zipball/949d4909d24f9656877ac38f8c90aecbf0a65091",
+                "reference": "949d4909d24f9656877ac38f8c90aecbf0a65091",
                 "shasum": ""
             },
             "require": {
@@ -60,7 +60,7 @@
                 "thumbnail",
                 "watermark"
             ],
-            "time": "2014-12-20 14:14:38"
+            "time": "2015-01-29 08:44:26"
         }
     ],
     "packages-dev": [],
@@ -68,6 +68,7 @@
     "minimum-stability": "stable",
     "stability-flags": [],
     "prefer-stable": false,
+    "prefer-lowest": false,
     "platform": [],
     "platform-dev": []
 }

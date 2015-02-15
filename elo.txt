@@ -2,38 +2,41 @@ DBMODELS
 	albums Album
 		type
 		name
-		public
-		user_id
+		public boolean
+		user_id users
 	photos Photo
 		file
 		height integer nullable
 		width integer nullable
 		date
 		elo integer nullable
-		collection_id
+		collection_id collections
 	matches Match
-		photo1_id
-		photo2_id
+		photo1_id photos
+		photo2_id photos
 		photo1_elo
 		photo2_elo
 		winner
 		ip
-		user_id integer nullable
+		user_id users
 	labels Label
 		name
-		user_id
+		user_id users
 
 RELATIONSHIPS
 	Photo
 		belongsToMany Label
+		belongsTo Album
 	Album
 		hasMany Photo
+		belongsTo User
 	User
 		hasMany Match
 		hasMany Label
 		hasMany Album
 	Match
 		belongsTo Photo | photo1_id photo2_id
+		belongsTo User
 	
 NAVIGATION
 	My Albums | albums

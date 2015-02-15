@@ -314,7 +314,7 @@ Route::get('$view', 'PagesController@$functionname');", $routes);
 		addFieldArrayToCreateSchema($object, $allfields_arr);
 
 	}
-	echo "Creating Link tables...\n";
+	echo "Creating Pivot tables...\n";
 	// Link table migrations have to be created AFTER the other tables
 	// So the foreign keys will link properly. The order matters here.
 	foreach ($project_array['OBJECTS'] as $object_and_singular => $fields_arr) {
