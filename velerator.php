@@ -18,22 +18,30 @@ class Velerator {
 
 		$this->initializeClassVariablesOrExit($argv);
 
-		echo "full_app_path = "			.$this->full_app_path."\n";
-		echo "velerator_path = "		.$this->velerator_path."\n";
-		echo "project_name = "			.$this->project_name."\n";
-		echo "project_files = "			.$this->project_files."\n";
-		echo "project_config_file = "	.$this->project_config_file."\n";
-
 		if ($this->extra_command == "clear") {
 			$this->clearExistingAppDirectory();
 		}
 
 		if ($this->appDirectoryDoesntExist()) {
 			$this->brand_new_install = true;
-			$this->buildFreshLaravelInstallWithPackages();
+			
+			//$this->buildFreshLaravelInstallWithPackages();
+			shell_exec("laravel new ".$this->project_name);
+			chdir($this->full_app_path);
+			shell_exec("git init");
+			shell_exec("git branch velerator_fresh_install");
+			shell_exec("git branch velerator_fresh_install_packages");
+			shell_exec("git branch velerator_generated");
+			shell_exec("git checkout velerator_fresh_install_packages");
+			$this->installPackages();
 		} else {
-			$this->revertToExistingLaravelInstall();
+			//$this->revertToExistingLaravelInstall();
+			chdir($this->full_app_path);
+			shell_exec("git branch -D velerator_generated");
+			shell_exec("git checkout velerator_fresh_install_packages");
+			shell_exec("git branch velerator_generated");
 		}
+		shell_exec("git checkout velerator_generated");
 
 
 	}
@@ -65,6 +73,13 @@ class Velerator {
 			$this->project_files = $this->velerator_path."/".$project_file_root."_files";
 		}
 		$this->createProjectArray();
+
+		echo "full_app_path = "			.$this->full_app_path."\n";
+		echo "velerator_path = "		.$this->velerator_path."\n";
+		echo "project_name = "			.$this->project_name."\n";
+		echo "project_files = "			.$this->project_files."\n";
+		echo "project_config_file = "	.$this->project_config_file."\n";
+
 	}
 
 	// ==========================================================
@@ -79,12 +94,7 @@ class Velerator {
 		echo "Done deleting ".$this->project_name."\n";
 	}
 
-	public function buildFreshLaravelInstallWithPackages() {
-
-		echo "Creating Laravel project...\n";
-		shell_exec("laravel new ".$this->project_name);
-		//shell_exec("composer --no-interaction create-project laravel/laravel ".$this->project_name." dev-develop");
-		echo "Laravel project ".$this->project_name." created.\n";
+	public function installPackages() {
 
 		// ===================================> ADD COMPOSER TOOLS
 		chdir($this->full_app_path);
