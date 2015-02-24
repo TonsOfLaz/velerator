@@ -6,6 +6,8 @@ DBMODELS
 		user_id users
 	photos Photo
 		file
+		file_medium string nullable
+		file_small string nullable
 		height integer nullable
 		width integer nullable
 		date
@@ -14,8 +16,8 @@ DBMODELS
 	matches Match
 		photo1_id photos
 		photo2_id photos
-		photo1_elo
-		photo2_elo
+		photo1_elo integer nullable
+		photo2_elo integer nullable
 		winner
 		ip
 		user_id users
@@ -27,6 +29,8 @@ RELATIONSHIPS
 	Photo
 		belongsToMany Label
 		belongsTo Album
+		hasMany Match matches1 photo1_id
+		hasMany Match matches2 photo2_id
 	Album
 		hasMany Photo
 		belongsTo User
@@ -35,17 +39,68 @@ RELATIONSHIPS
 		hasMany Label
 		hasMany Album
 	Match
-		belongsTo Photo photo1
-		belongsTo Photo photo2
+		belongsTo Photo photo1 photo1_id
+		belongsTo Photo photo2 photo2_id
 		belongsTo User
 	Label
 		belongsToMany Photo
 		belongsTo User
 
+MODELFUNCTIONS
+	Photo
+		wins   | filter | matches | $match->winner == $this->id
+		losses | filter | matches | $match->winner > 0 && $match->winner != $this->id
+		ties   | filter | matches | $match->winner == 0
+		matches | standard | $this->matches1->merge($this->matches2)
+		albumRanked | scope | $this->album->photos()->where('elo', '>', 0)
+	Album
+		publicAlbums | scope | where('public', true)
+
+COMMANDS
+	AddInstagramAlbum queued
+		Instagram Photo Album
+
+ROUTES
+	albums
+		?/rankings
+		?/play
+		?/play/break
+		public publicAlbums
+	photos
+		?/wins
+		?/losses
+		?/ties
+	instagram PagesController
+
+FRONTEND
+	photo extends app
+		title   | Photo
+		content | .row>.columns.small-6>img^.columns.small-3>.elo>{Elo:}^.rank>{Rank:}^.album>{Album:}^^.columns.small-3>a.button>{Rankings}^a.button{Play}
+		content | @yield('tabs')
+	album extends app
+		title   | Album {{$album->name}}
+		content | .row>.columns.small-12>h2+a.button{+a
+		content | @include('sections.thumbs')
+	photos.losses extends photos.show
+		title   | Photo Losses
+		content | .row>.columns.small-12>ul.tabs>li.tab-title*4>a
+		content | include('sections.thumbs_matches')
+	sections.thumbs_matches
+		.tabs_wrapper>.row>.columns.small-12{@foreach (\$matches as \$match)}>a>img^{@endforeach}
+	sections.thumbs
+		.tabs_wrapper>.row>.columns.small-12{@foreach (\$photos as \$photo)}>a>img^{@endforeach}
+
 PACKAGES
 	intervention/image
 		provider | Intervention\Image\ImageServiceProvider
-		alias | Intervention\Image\Facades\Image
+		alias | Image Intervention\Image\Facades\Image
+	laravelcollective/html
+		provider | Collective\Html\HtmlServiceProvider
+		alias | Form Collective\Html\FormFacade
+      	alias | Html Collective\Html\HtmlFacade
+	vinkla/instagram
+		provider | Vinkla\Instagram\InstagramServiceProvider
+      	alias | Instagram Vinkla\Instagram\Facades\Instagram
 
 FAKEDATA
 	users 20
@@ -63,9 +118,21 @@ FAKEDATA
 		width | numberBetween($min = 800, $max = 800)
 		date | dateTimeThisYear($max = 'now')
 		album_id |  numberBetween($min = 1, $max = 50)
+		elo | numberBetween(800, 1200)
 	labels 20
 		name | catchPhrase
 		user_id | numberBetween($min = 1, $max = 20)
+	matches 2000
+		photo1_id | numberBetween(1, 200)
+		photo2_id | numberBetween(1, 200)
+		photo1_elo | numberBetween(800, 1200)
+		photo2_elo | numberBetween(800, 1200)
+		winner | numberBetween(1, 200)
+		ip | ipv4
+		user_id | numberBetween($min = 1, $max = 20)
+	label_photo 500
+		photo_id | numberBetween(1, 200)
+		label_id | numberBetween(1, 20)
 
 NAVIGATION
 	My Albums | albums

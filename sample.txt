@@ -1,5 +1,6 @@
-OBJECTS
+DBMODELS
 	legislators Legislator
+		session_id sessions
 		first_name
 		last_name
 		chamber
@@ -21,14 +22,32 @@ OBJECTS
 		number integer
 		summary text
 		sponsor_id legislators
-		*categories
-		*cosponsors legislators
 	categories Category
 		name
 	tracks Track
 		name
 		user_id users
 		session_id sessions
+
+RELATIONSHIPS
+	Legislator
+		belongsTo Session
+		hasMany Bill sponsor
+	Bill
+		belongsTo Session
+		hasOne Legislator sponsor
+		belongsToMany Track
+		belongsToMany Category
+	Track
+		hasMany Bill
+		belongsTo User
+		belongsTo Session
+	Category
+		belongsToMany Bill
+	Session
+		hasMany Bill
+		hasMany Legislator
+		hasMany Track
 
 NAMES
 	legislators | $chamber. $last_name, $first_name ($party)
@@ -49,23 +68,6 @@ LISTFUNCTIONS
 		representatives | Representatives
 		senators | Senators
 		leadership | Leadership
-
-STANDARDWELCOME
-	replace
-		image | business
-		imagebox | technics
-		tagline | The power to compete on Beacon Hill
-		box1 | Search
-		box1quote | Find the exact legislation you want, immediately
-		box2 | Track 
-		box2quote | Follow the bills you care about with email alerts
-		box3 | Report
-		box3quote | Craft beautiful reports for your clients
-	sections
-		Know what's happening right now on Beacon Hill | Are you looking for an architect, or a builder? Do you need a home inspector, a realtor, or a lawyer? Where do you start answering these questions?
-		"I cannot work without InstaTrac. It's absolutely essential." | That was our former client, John Doe. Our years of work have left clients with a lot to say.
-		Budgets, budgets, budgets. | Do you love your location, but feel the house has never lived up to its potential? It might be possible to remodel your existing home into you dream home.
-		Celebrating 30 years! | Michael Segal, founder and owner of InstTrac Inc, designed his first service in 1984.
 
 FAKEDATA
 	bills 200
@@ -88,6 +90,7 @@ FAKEDATA
 		district | numberBetween($min = 1, $max = 200)
 		email | email
 		address | address
+		session_id | numberBetween($min = 10, $max = 12)
 	categories 50
 		name | word
 	sessions 12
@@ -100,11 +103,23 @@ FAKEDATA
 		name | catchPhrase
 		user_id | numberBetween($min = 1, $max = 20)
 		session_id | numberBetween($min = 10, $max = 12)
-	bills_cosponsors 200
-		bill_id | numberBetween($min = 1, $max = 200)
-		legislator_id | numberBetween($min = 1, $max = 50)
-	bills_categories 50
+	bill_category 50
 		bill_id | numberBetween($min = 1, $max = 200)
 		category_id | numberBetween($min = 1, $max = 50)
 
-
+STANDARDWELCOME
+	replace
+		image | business
+		imagebox | technics
+		tagline | The power to compete on Beacon Hill
+		box1 | Search
+		box1quote | Find the exact legislation you want, immediately
+		box2 | Track 
+		box2quote | Follow the bills you care about with email alerts
+		box3 | Report
+		box3quote | Craft beautiful reports for your clients
+	sections
+		Know what's happening right now on Beacon Hill | Are you looking for an architect, or a builder? Do you need a home inspector, a realtor, or a lawyer? Where do you start answering these questions?
+		"I cannot work without InstaTrac. It's absolutely essential." | That was our former client, John Doe. Our years of work have left clients with a lot to say.
+		Budgets, budgets, budgets. | Do you love your location, but feel the house has never lived up to its potential? It might be possible to remodel your existing home into you dream home.
+		Celebrating 30 years! | Michael Segal, founder and owner of InstTrac Inc, designed his first service in 1984.
