@@ -62,6 +62,7 @@ class Velerator {
 		$this->velerateROUTECONTROLLERS();
 		$this->velerateROUTEVIEWS();
 		$this->velerateROUTES();
+		$this->addModelLinks();
 		$this->addModelTabs();
 		$this->modifyAppView();
 		$this->createAndRunSeedFiles();
@@ -601,6 +602,41 @@ use App\\'.$singular.";", $thiscontroller);
 		file_put_contents("./app/Http/routes.php", $newroutes);
 
 	}
+	public function addModelLinks() {
+		$modellinks = [];
+		foreach ($this->project_config_array['RELATIONSHIPS'] as $model => $relationships) {
+			foreach ($relationships as $relationship_str) {
+				$rel_arr = explode(" ", $relationship_str);
+				$rel_type = $rel_arr[0];
+				$rel_model = $rel_arr[1];
+				if ($rel_type == 'hasOne' || $rel_type == 'belongsTo') {
+					$rel_table = $this->getTableFromModelName($rel_model);
+					if (count($rel_arr) > 2) {
+						$func = $rel_arr[2];
+					} else {
+						$func = strtolower($rel_model);
+					}
+					$modellinks[$model][$func] = $rel_model;
+
+				}
+			}
+		}
+		//print_r($modellinks);
+
+		foreach ($this->singular_models as $table => $model) {
+			$links_html = "";
+			if (isset($modellinks[$model])) {
+				//$links_html .= $modellinks[$model][$table]['function'];
+				foreach ($modellinks[$model] as $func => $rel_model) {
+					$links_html .= '<a href="/'.$this->getTableFromModelName($rel_model).'/{{ $'.strtolower($model)."->".$func."->id }}".'">'.$rel_model.' {{ $'.strtolower($model)."->".$func."->id }}</a><br>";
+				}
+			}
+			$modelviewpath = $this->full_app_path."/resources/views/".strtolower($model).".blade.php";
+			$modelviewfile = file_get_contents($modelviewpath);
+			$newfile = str_replace("[LINKS]", $links_html, $modelviewfile);
+			file_put_contents($modelviewpath, $newfile);
+		}
+	}
 	public function addModelTabs() {
 		$modeltabs = [];
 		foreach ($this->project_config_array['RELATIONSHIPS'] as $model => $relationships) {
@@ -628,7 +664,7 @@ use App\\'.$singular.";", $thiscontroller);
 				}
 			}
 		}
-		print_r($modeltabs);
+		//print_r($modeltabs);
 		foreach ($this->singular_models as $table => $model) {
 			$tabs_list = "
 	";
@@ -706,8 +742,15 @@ $model
 
 @section('content')
 	<div class='row'>
-		<div class='columns small-12'>
-			$model {{ $".strtolower($model)."->id }}
+		<div class='columns small-12 large-8'>
+			<h2>$model {{ $".strtolower($model)."->id }}</h2>
+		</div>
+	</div>
+	<div class='row'>
+		<div class='columns small-12 large-4 large-push-8'>
+			[LINKS]
+		</div>
+		<div class='columns small-12 large-8 large-pull-4'>
 			<ul>
 				@foreach ($".strtolower($model)."->getAttributes() as ".'$attribute'." => ".'$value'.")
 					<li>{{ ".'$attribute'." }}: {{ ".'$value'." }}</li>
