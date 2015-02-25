@@ -53,6 +53,7 @@ class Velerator {
 		shell_exec("cp ".$this->velerator_path."/velerator_files/.env ".$this->full_app_path."/.env");
 		shell_exec("cp ".$this->velerator_path."/velerator_files/.gitignore ".$this->full_app_path."/.gitignore");
 		$this->bringInFoundationCSS();
+		$this->velerateNAVIGATION();
 
 		$this->velerateDBMODELS();
 		$this->velerateRELATIONSHIPS();
@@ -136,24 +137,29 @@ class Velerator {
 		mkdir($this->full_app_path."/public/js");
 		mkdir($this->full_app_path."/public/js/foundation");
 		shell_exec("cp -R ".$this->velerator_path."/velerator_files/foundation/js/* ".$this->full_app_path."/public/js");
-		$appview = file_get_contents($this->full_app_path."/resources/views/app.blade.php");
-		$replacestr_css = "<link href=\"/css/app.css\" rel=\"stylesheet\">";
-		$newappview = str_replace($replacestr_css, $replacestr_css."
-	<link href=\"/css/foundation/foundation.min.css\" rel=\"stylesheet\">", $appview);
+		$appview = file_get_contents($this->velerator_path."/velerator_files/views/app.blade.php");
+		$replacestr_css = "[CSS]";
+		$newappview = str_replace($replacestr_css, "
+		<link href=\"/css/foundation/foundation.min.css\" rel=\"stylesheet\">", $appview);
 
-		$replacestr_js = 'bootstrap.min.js"></script>';
+		$replacestr_js = '[JS]';
 		$new_js = '
-	<script src="/js/foundation.min.js"></script>
-	<script>
-		$(document).foundation();
-	</script>';
-		$newappview = str_replace($replacestr_js, $replacestr_js.$new_js, $newappview);
+		<script src="/js/foundation.min.js"></script>';
+		$newappview = str_replace($replacestr_js, $new_js, $newappview);
 		file_put_contents($this->full_app_path."/resources/views/app.blade.php", $newappview);
 
 	}
+	public function velerateNAVIGATION() {
+		$navstr = "";
+		mkdir($this->full_app_path."/resources/views/partials");
+		foreach ($this->project_config_array['NAVIGATION'] as $filter => $nav) {
+			$navstr .= "<li><a href='#'>$filter</a></li>";
+		}
+		file_put_contents($this->full_app_path."/resources/views/partials/navigation.blade.php", $navstr);
+	}
 	public function modifyAppView() {
 		$appview = file_get_contents($this->full_app_path."/resources/views/app.blade.php");
-		$newview = str_replace("Laravel", ucwords($this->project_name), $appview);
+		$newview = str_replace("[APPNAME]", ucwords($this->project_name), $appview);
 		file_put_contents($this->full_app_path."/resources/views/app.blade.php", $newview);
 	}
 	public function createAndRunSeedFiles() {
@@ -729,6 +735,43 @@ use App\\'.$singular.";", $thiscontroller);
 			$this->addModelViewCommand($table, $singular, "edit");
 			$this->addModelViewCommand($table, $singular, "update");
 			$this->addModelViewCommand($table, $singular, "destroy");
+		}
+
+		foreach ($this->project_config_array['ROUTES'] as $root => $views) {
+			$viewcontent = "@extends('app')
+@section('title')
+[TITLE]
+@endsection
+@section('content')
+[CONTENT]
+@endsection";
+			if (count($views) > 0) {
+			
+				foreach ($views as $view) {
+					$newviewcontent = $viewcontent;
+					$view_arr = explode(" ", trim($view));
+					if (count($view_arr) > 1) {
+						$view = $view_arr[0];
+					}
+					$str = str_replace("?", "", $view);
+					$str = str_replace("/", " ", $str);
+					$str = ucwords($str);
+			        $str = str_replace(" ", "", $str);
+			        $str = lcfirst($str);
+					$newviewcontent = str_replace("[TITLE]", $root." ".$str, $newviewcontent);
+					$newviewcontent = str_replace("[CONTENT]", $root." ".$str, $newviewcontent);
+					
+					file_put_contents($this->full_app_path."/resources/views/$root/$str.blade.php", $newviewcontent);
+				}
+			} else {
+				$newviewcontent = str_replace("[TITLE]", ucwords($root), $viewcontent);
+				$newviewcontent = str_replace("[CONTENT]", ucwords($root), $newviewcontent);
+				$root_arr = explode(" ", trim($root));
+				if (count($root_arr) > 1) {
+					$root = $root_arr[0];
+				}
+				file_put_contents($this->full_app_path."/resources/views/$root.blade.php", $newviewcontent);
+			}
 		}
 
 	}
