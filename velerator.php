@@ -41,6 +41,7 @@ class Velerator {
 		} else {
 			//$this->revertToExistingLaravelInstall();
 			chdir($this->full_app_path);
+			shell_exec("git stash");
 			shell_exec("git rebase --onto velerator_fresh_install_packages velerator_generated master");
 			shell_exec("git branch -D velerator_generated");
 			shell_exec("git checkout velerator_fresh_install_packages");
@@ -609,7 +610,8 @@ use App\\'.$singular.";", $thiscontroller);
 				$rel_model = $rel_arr[1];
 				if ($rel_type == 'hasMany' || $rel_type == 'belongsToMany') {
 					$tabname = $this->getTableFromModelName($rel_model);
-					$modeltabs[$model][$tabname] = $rel_model;
+					$modeltabs[$model][$tabname]['tab_model'] = $rel_model;
+					$modeltabs[$model][$tabname]['tab_type'] = "relation";
 
 				}
 			}
@@ -619,36 +621,60 @@ use App\\'.$singular.";", $thiscontroller);
 				$func_arr = explode("|", $func_str);
 				$func_name = trim($func_arr[0]);
 				$func_type = trim($func_arr[1]);
-				if ($func_type == 'filter') {
+				if ($func_type == 'filter' || $func_type == 'table') {
 					$func_table = trim($func_arr[2]);
-					$modeltabs[$model][$func_name] = $this->singular_models[$func_table];
+					$modeltabs[$model][$func_name]['tab_model'] = $this->singular_models[$func_table];
+					$modeltabs[$model][$func_name]['tab_type'] = "function";
 				}
 			}
 		}
 		print_r($modeltabs);
 		foreach ($this->singular_models as $table => $model) {
-			$tabs_list = "";
-			$tabs_content = "";
+			$tabs_list = "
+	";
+			$tabs_content = "
+			";
 			$singular_lower = strtolower($model);
 			if (isset($modeltabs[$model])) {
-				$tabs_list .= "<div class='row'>";
-				$tabs_list .= "<div class='columns small-12'>";
-				$tabs_list .= '<ul class="tabs" data-tab data-options="deep_linking:true">';
+				$tabs_list .= '<div class="row">
+		<div class="columns small-12">
+			<ul class="tabs" data-tab data-options="deep_linking:true">';
 				$tabs_content .= '<div class="tabs-content">';
-				foreach ($modeltabs[$model] as $related_function => $related_model) {
+				$once = 1;
+				foreach ($modeltabs[$model] as $related_function => $related_model_arr) {
+					$related_model = $related_model_arr['tab_model'];
+					$related_type = $related_model_arr['tab_type'];
+					$optional_get = "";
+					if ($related_type == 'relation') {
+						$optional_get = "->get()";
+					}
 					$related_function_uc = ucwords($related_function);
+					if ($once == 1) {
+						$activestr = " active";
+						$once = 0;
+					} else {
+						$activestr = "";
+					}
+					$tabs_list .= "
+				<li class='tab-title$activestr'>
+					<a href='#$related_function'>{{ $".$singular_lower."->".$related_function."()->count() }} $related_function_uc</a>
+				</li>";
 
-					$tabs_list .= "<li class='tab-title'>";
-					$tabs_list .= '<a href="#'.$related_function.'">{{ $'.$singular_lower.'->'.$related_function.'()->count() }} '.$related_function_uc."</a>";
-					$tabs_list .= "</li>";
-
-					$tabs_content .= '<div class="content" id="'.$related_function.'"><p>'.$related_function_uc.'</p></div>';
+					$tabs_content .= '
+				<div class="content'.$activestr.'" id="'.$related_function.'">
+					@foreach ($'.$singular_lower.'->'.$related_function.'()'.$optional_get.' as $'.strtolower($related_model).')
+						<p><a href="/'.$this->getTableFromModelName($related_model).'/{{ $'.strtolower($related_model).'->id }}">'.$related_model.' {{ $'.strtolower($related_model).'->id }}</a></p>
+					@endforeach
+				</div>';
 				}
-				$tabs_list .= "</ul>";
-				$tabs_content .= "</div>";
+				$tabs_list .= "
+			</ul>";
+				$tabs_content .= "
+			</div>";
 				$tabs_list .= $tabs_content;
-				$tabs_list .= "</div>";
-				$tabs_list .= "</div>";
+				$tabs_list .= "
+		</div>
+	</div>";
 			} 
 			$modelviewpath = $this->full_app_path."/resources/views/".strtolower($model).".blade.php";
 			$modelviewfile = file_get_contents($modelviewpath);
@@ -768,8 +794,8 @@ $modelstr", $commandfile);
 				} else if ($function_type == 'scope') {
 					$function_name = 'scope'.ucfirst($function_name);
 					$function_body = "return ".trim($function_arr[2]).";";
-				} else if ($function_type == 'standard') {
-					$function_body = "return ".trim($function_arr[2]).";";
+				} else if ($function_type == 'table') {
+					$function_body = "return ".trim($function_arr[3]).";";
 				}
 				$function_str .= "
 	public function $function_name()

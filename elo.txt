@@ -51,7 +51,7 @@ MODELFUNCTIONS
 		wins   | filter | matches | $match->winner == $this->id
 		losses | filter | matches | $match->winner > 0 && $match->winner != $this->id
 		ties   | filter | matches | $match->winner == 0
-		matches | standard | $this->matches1->merge($this->matches2)
+		matches | table | matches | $this->matches1->merge($this->matches2)
 		albumRanked | scope | $this->album->photos()->where('elo', '>', 0)
 	Album
 		publicAlbums | scope | where('public', true)
@@ -114,6 +114,8 @@ FAKEDATA
 		user_id | numberBetween($min = 1, $max = 20)
 	photos 200
 		file | imageUrl($width = 800, $height = 600)
+		file_small | imageUrl($width = 120, $height = 100)
+		file_medium | imageUrl($width = 400, $height = 300)
 		height | numberBetween($min = 600, $max = 600)
 		width | numberBetween($min = 800, $max = 800)
 		date | dateTimeThisYear($max = 'now')
