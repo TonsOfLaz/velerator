@@ -1,8 +1,5 @@
-donkey
-monkey
-elo
-jerk
-vendor
-angular
-calhoun_files
-elo_files
+*
+
+!velerator.php
+!velerator_files/*
+!sample.txt
