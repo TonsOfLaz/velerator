@@ -1,0 +1,99 @@
+@import  url(//fonts.googleapis.com/css?family=Lato:300);
+
+body {
+	margin:0;
+	font-family:'Lato', sans-serif;
+	-webkit-font-smoothing:antialiased;
+	-moz-osx-font-smoothing:grayscale;
+	background: #bbb;
+}
+.top-bar-section ul li > a {
+    font-family:'Lato', sans-serif;
+    font-size: 1rem;
+}
+#image_overlay {
+	margin-top: -5rem;
+	height: 5rem;
+	background: black;
+	opacity: .7;
+	color: white;
+
+}
+#image_overlay p {
+	line-height: 2.2;
+	font-size: 2rem;
+	font-weight: bold;
+}
+.row-light {
+	background: #ddd;
+}
+.circleimage {
+	height: 200px;
+	width: 200px;
+	border-radius: 100px;
+	margin: auto;
+	position: relative;
+	border: 5px solid white;
+	margin-top: 20px;
+}
+.circleimage h3 {
+	background: none repeat scroll 0 0 white;
+    left: -40%;
+    position: absolute;
+    text-align: center;
+    top: 110px;
+    width: 180%;
+    /*box-shadow: 2px 2px 3px #999;*/
+}
+.section {
+	min-height: 350px;
+}
+.section-content {
+	padding: 50px;
+}
+.section-content .button {
+	float: left;
+	clear: both;
+}
+.section-title {
+	font-size: 2.4rem;
+	padding-top: 80px;
+}
+.section-background-0 {
+	color: #0d3866;
+}
+.section-background-1 {
+	background: #0d3866;
+    color: white;
+}
+.section-background-2 {
+	background: white;
+    color: #999;
+}
+
+ul.list-expandable {
+	list-style: none;
+	border-bottom: 1px solid #ccc;
+}
+ul.list-expandable > li {
+	border-top: 	1px solid #ccc;
+	border-right: 	1px solid #bbb;
+	border-left: 	1px solid #aaa;
+}
+ul.list-expandable > li > span {
+	
+	background: white;
+	cursor: pointer;
+	padding:5px;
+	width: 100%;
+	display:block;
+}
+ul.list-expandable > li > span.hover {
+	transition: .3s;
+	background: #f2f2f2;
+}
+.list-expandable-contents {
+	height: 200px;
+	display:none;
+	background: white;
+}
