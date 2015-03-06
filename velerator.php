@@ -11,6 +11,7 @@ class Velerator {
 	private $singular_models;
 	private $brand_new_install;
 	private $extra_command;
+	private $schema;
 
 	public function __construct($argv) {
 		// 1: project name
@@ -59,6 +60,8 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added NAVIGATION.");
 		$this->velerateDBMODELS();
 		$this->gitAddAndCommitWithMessage("Added DBMODELS and routes.");
+		$this->velerateLINKTEXT();
+		$this->gitAddAndCommitWithMessage("Added LINKTEXT to models.");
 		$this->velerateRELATIONSHIPS();
 		$this->gitAddAndCommitWithMessage("Added Model RELATIONSHIPS and pivot tables.");
 		$this->velerateCOMMANDS();
@@ -112,6 +115,7 @@ class Velerator {
 		$this->singular_models['users'] = "User";
 		$this->velerator_path = getcwd();
 		$this->full_app_path = $this->velerator_path."/".$this->project_name;
+		$this->schema = [];
 		
 		// Optional files for views
 		$this->project_files = "";
@@ -129,6 +133,7 @@ class Velerator {
 
 	}
 	public function gitAddAndCommitWithMessage($message) {
+		echo $message."\n";
 		shell_exec("git add .");
 		shell_exec("git commit -am '$message'");
 	}
@@ -374,6 +379,47 @@ class Velerator {
 			}
 		}
 	}
+	function velerateLINKTEXT() {
+
+		foreach ($this->singular_models as $table => $singular) {
+			$newstr = "";
+			$replacestr = "";
+			$functioncontent = "";
+			$singular_lower = strtolower($singular);
+			if (isset($this->project_config_array['LINKTEXT'][$singular])) {
+				$nameguide = $this->project_config_array['LINKTEXT'][$singular][0];
+
+				preg_match_all('|\$([a-zA-Z_0-9]*)|', $nameguide, $matches);
+				$varstr = "";
+				foreach ($matches[1] as $varname) {
+					$varstr .= '$'.$varname.' = $this->'.$varname.";
+		";
+				}
+				$functioncontent = $varstr.'return "'.$nameguide.'";';
+
+			} else {
+				
+				if (isset($this->schema[$table]['name']) || $singular == 'User') {
+					$functioncontent = 'return $this->name;';
+				} else {
+					$functioncontent = "return '$singular ".'$this->id;';
+				}
+
+			}
+			$newstr .= "
+	public function getLinkTextAttribute() {
+		$functioncontent
+	}";
+			$modelfile = file_get_contents($this->full_app_path."/app/$singular.php");
+			if ($singular == "User") {
+				$replacestr = "protected ".'$hidden'." = ['password', 'remember_token'];";
+			} else {
+				$replacestr = "protected ".'$hidden'." = [];";
+			}
+			$newmodelfile = str_replace($replacestr, $replacestr.$newstr, $modelfile);
+			file_put_contents($this->full_app_path."/app/$singular.php", $newmodelfile);
+		}
+	}
 
 	function addFieldArrayToCreateSchema($edit_table, $field_array) {
 		$str = "";
@@ -401,6 +447,7 @@ class Velerator {
 				->references('id')->on('$secondarytable');
 	      	";
 			}
+			$this->schema[$edit_table][$name] = $type;
 		}
 		$glob_arr = glob($this->full_app_path."/database/migrations/*_create_".$edit_table."_table.php");
 		if (count($glob_arr) > 0) {
@@ -453,6 +500,15 @@ class Velerator {
 																		$relationship_model, 
 																		$relationship_type,
 																		$relationship_field);
+						break;
+					case 'belongsToThrough':
+						if (!$function_name) {
+							$function_name = strtolower($relationship_model);
+						}
+						$through = $relationship_arr[2];
+						$function_str .= $this->getRelationshipFunctionBelongsToThrough($function_name, 
+																		$relationship_model, 
+																		$through);
 						break;
 					case 'hasMany':
 						if (!$function_name) {
@@ -625,7 +681,7 @@ Route::get('".$routebase_arr[0]."', '".$controller."@".$routebase_arr[0]."');";
 			$thiscontroller = file_get_contents($this->full_app_path."/app/Http/Controllers/".$capstable."Controller.php");
 			$newcontroller = str_replace("use App\Http\Controllers\Controller;", 'use App\Http\Controllers\Controller;
 use App\\'.$singular.";", $thiscontroller);
-			$newcontroller = str_replace('$id', '$'.$singular_lower, $newcontroller);
+			$newcontroller = str_replace('$id', $singular.' $'.$singular_lower, $newcontroller);
 			file_put_contents($this->full_app_path."/app/Http/Controllers/".$capstable."Controller.php", $newcontroller);
 
 			// Include resource routes
@@ -675,7 +731,7 @@ use App\\'.$singular.";", $thiscontroller);
 			if (isset($modellinks[$model])) {
 				//$links_html .= $modellinks[$model][$table]['function'];
 				foreach ($modellinks[$model] as $func => $rel_model) {
-					$links_html .= '<a href="/'.$this->getTableFromModelName($rel_model).'/{{ $'.strtolower($model)."->".$func."->id }}".'">'.$rel_model.' {{ $'.strtolower($model)."->".$func."->id }}</a><br>";
+					$links_html .= '<a href="/'.$this->getTableFromModelName($rel_model).'/{{ $'.strtolower($model)."->".$func."->id }}".'">{{ $'.strtolower($model)."->".$func."->link_text }}</a><br>";
 				}
 			}
 			$modelviewpath = $this->full_app_path."/resources/views/".strtolower($model).".blade.php";
@@ -711,13 +767,17 @@ use App\\'.$singular.";", $thiscontroller);
 				}
 			}
 		}
-		//print_r($modeltabs);
+		print_r($modeltabs);
 		foreach ($this->singular_models as $table => $model) {
+			$singular_lower = strtolower($model);
+			$show_code = "";
+			$show_compact = "
+		return view('".$singular_lower."', compact('".$singular_lower."', ";
 			$tabs_list = "
 	";
 			$tabs_content = "
 			";
-			$singular_lower = strtolower($model);
+			
 			if (isset($modeltabs[$model])) {
 				$tabs_list .= '<div class="row">
 		<div class="columns small-12">
@@ -725,6 +785,7 @@ use App\\'.$singular.";", $thiscontroller);
 				$tabs_content .= '<div class="tabs-content">';
 				$once = 1;
 				foreach ($modeltabs[$model] as $related_function => $related_model_arr) {
+					
 					$related_model = $related_model_arr['tab_model'];
 					$related_type = $related_model_arr['tab_type'];
 					$optional_get = "";
@@ -734,22 +795,28 @@ use App\\'.$singular.";", $thiscontroller);
 					$related_function_uc = ucwords($related_function);
 					if ($once == 1) {
 						$activestr = " active";
+						$show_compact .= "'$related_function'";
 						$once = 0;
 					} else {
 						$activestr = "";
 					}
+					$show_compact .= ", '$related_function'";
+					$show_code .= '$'.$related_function.' = $'.$singular_lower.'->'.$related_function.'()'.$optional_get.';
+		';
+
 					$tabs_list .= "
 				<li class='tab-title$activestr'>
-					<a href='#$related_function'>{{ $".$singular_lower."->".$related_function."()->count() }} $related_function_uc</a>
+					<a href='#$related_function'>{{ $".$related_function."->count() }} $related_function_uc</a>
 				</li>";
 
 					$tabs_content .= '
 				<div class="content'.$activestr.'" id="'.$related_function.'">
-					@foreach ($'.$singular_lower.'->'.$related_function.'()'.$optional_get.' as $'.strtolower($related_model).')
-						<p><a href="/'.$this->getTableFromModelName($related_model).'/{{ $'.strtolower($related_model).'->id }}">'.$related_model.' {{ $'.strtolower($related_model).'->id }}</a></p>
+					@foreach ($'.$related_function.' as $'.strtolower($related_model).')
+						<p><a href="/'.$this->getTableFromModelName($related_model).'/{{ $'.strtolower($related_model).'->id }}">{{ $'.strtolower($related_model).'->link_text }}</a></p>
 					@endforeach
 				</div>';
 				}
+				$show_compact .= "));";
 				$tabs_list .= "
 			</ul>";
 				$tabs_content .= "
@@ -757,7 +824,13 @@ use App\\'.$singular.";", $thiscontroller);
 				$tabs_list .= $tabs_content;
 				$tabs_list .= "
 		</div>
-	</div>";
+	</div>";	$controllerpath = $this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php";
+				$controllerfile = file_get_contents($controllerpath);
+				$replacestr = "return view('".$singular_lower."', compact('".$singular_lower."'));";
+
+				$newcontroller = str_replace($replacestr, $show_code.$show_compact, $controllerfile);
+				file_put_contents($controllerpath, $newcontroller);
+
 			} 
 			$modelviewpath = $this->full_app_path."/resources/views/".strtolower($model).".blade.php";
 			$modelviewfile = file_get_contents($modelviewpath);
@@ -827,7 +900,7 @@ $model
 @section('content')
 	<div class='row'>
 		<div class='columns small-12 large-8'>
-			<h2>$model {{ $".strtolower($model)."->id }}</h2>
+			<h2>{{ $".strtolower($model)."->link_text }}</h2>
 		</div>
 	</div>
 	<div class='row'>
@@ -846,10 +919,10 @@ $model
 @endsection";
 	}
 	public function addModelViewCommand($table, $model, $command) {
-		$modelid_str = "{{ $".strtolower($model)."->id }}";
+		$linktext = "{{ $".strtolower($model)."->link_text }}";
 		switch ($command) {
 			case 'create':
-				$modelid_str = "";
+				$linktext = "";
 				break;
 		}
 		$command_upper = ucwords($command);
@@ -857,13 +930,13 @@ $model
 @extends('app')
 
 @section('title')
-$command_upper $model $modelid_str
+$command_upper $linktext
 @endsection
 
 @section('content')
 	<div class='row'>
 		<div class='columns small-12'>
-			$command_upper $model $modelid_str
+			$command_upper $linktext
 		</div>
 	</div>
 @endsection";
@@ -952,6 +1025,15 @@ $modelstr", $commandfile);
 	public function $function_name()
 	{
 		return ".'$this'."->$type('App\\$model');
+	}
+	";
+		return $str;
+	}
+	public function getRelationshipFunctionBelongsToThrough($function_name, $model, $through) {
+		$str = "
+	public function $function_name()
+	{
+		return ".'$this'."->".$through."->belongsTo('App\\$model');
 	}
 	";
 		return $str;
