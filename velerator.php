@@ -50,23 +50,34 @@ class Velerator {
 		shell_exec("git checkout velerator_generated");
 
 		$this->initializeDatabase();
+		$this->gitAddAndCommitWithMessage("Initialized Database.");
 		shell_exec("cp ".$this->velerator_path."/velerator_files/.env ".$this->full_app_path."/.env");
 		shell_exec("cp ".$this->velerator_path."/velerator_files/.gitignore ".$this->full_app_path."/.gitignore");
 		$this->bringInFoundationCSS();
+		$this->gitAddAndCommitWithMessage("Added Foundation CSS.");
 		$this->velerateNAVIGATION();
-
+		$this->gitAddAndCommitWithMessage("Added NAVIGATION.");
 		$this->velerateDBMODELS();
+		$this->gitAddAndCommitWithMessage("Added DBMODELS and routes.");
 		$this->velerateRELATIONSHIPS();
+		$this->gitAddAndCommitWithMessage("Added Model RELATIONSHIPS and pivot tables.");
 		$this->velerateCOMMANDS();
+		$this->gitAddAndCommitWithMessage("Added COMMANDS.");
 		$this->velerateMODELFUNCTIONS();
-		shell_exec("php artisan migrate");
+		$this->gitAddAndCommitWithMessage("Added custom MODELFUNCTIONS.");
 		$this->velerateROUTECONTROLLERS();
+		$this->gitAddAndCommitWithMessage("Added Model Resource routes and controllers.");
 		$this->velerateROUTEVIEWS();
+		$this->gitAddAndCommitWithMessage("Added Model default Route views.");
 		$this->velerateROUTES();
+		$this->gitAddAndCommitWithMessage("Added Custom ROUTES.");
 		$this->addModelLinks();
+		$this->gitAddAndCommitWithMessage("Added Model Links.");
 		$this->addModelTabs();
-		$this->modifyAppView();
+		$this->gitAddAndCommitWithMessage("Added Model Tabs.");
+		shell_exec("php artisan migrate");
 		$this->createAndRunSeedFiles();
+		$this->gitAddAndCommitWithMessage("Added seeder files.");
 
 		shell_exec("git add .");
 		shell_exec("git commit -am 'Velerator files generated ".time()."'");
@@ -117,6 +128,10 @@ class Velerator {
 		echo "project_config_file = "	.$this->project_config_file."\n";
 
 	}
+	public function gitAddAndCommitWithMessage($message) {
+		shell_exec("git add .");
+		shell_exec("git commit -am '$message'");
+	}
 
 	public function initializeDatabase() {
 		shell_exec("touch ".$this->full_app_path."/storage/database.sqlite");
@@ -138,6 +153,7 @@ class Velerator {
 		mkdir($this->full_app_path."/public/js/foundation");
 		shell_exec("cp -R ".$this->velerator_path."/velerator_files/foundation/js/* ".$this->full_app_path."/public/js");
 		$appview = file_get_contents($this->velerator_path."/velerator_files/views/app.blade.php");
+		
 		$replacestr_css = "[CSS]";
 		$newappview = str_replace($replacestr_css, "
 		<link href=\"/css/foundation/foundation.min.css\" rel=\"stylesheet\">", $appview);
@@ -150,17 +166,42 @@ class Velerator {
 
 	}
 	public function velerateNAVIGATION() {
-		$navstr = "";
+		// Any new paths you add here should go into ROUTES as well
+		$bothstr = "";
+		$authstr = "";
+		$gueststr = "";
 		mkdir($this->full_app_path."/resources/views/partials");
-		foreach ($this->project_config_array['NAVIGATION'] as $filter => $nav) {
-			$navstr .= "<li><a href='#'>$filter</a></li>";
+		$navview = file_get_contents($this->velerator_path."/velerator_files/views/navigation.blade.php");
+		$navview = str_replace("[APPNAME]", ucwords($this->project_name), $navview);
+		foreach ($this->project_config_array['NAVIGATION'] as $filter => $nav_list) {
+			foreach ($nav_list as $value) {
+				$val_arr = explode("|", $value);
+				$text = trim($val_arr[0]);
+				$link = trim($val_arr[1]);
+				$navstr = "
+				<li><a href='/$link'>$text</a></li>";
+				switch ($filter) {
+					case 'Auth':
+						$authstr .= $navstr;
+						break;
+					case 'Both':
+						$bothstr .= $navstr;
+						break;
+					case 'Guest':
+						$gueststr .= $navstr;
+						break;
+				}
+			}
 		}
-		file_put_contents($this->full_app_path."/resources/views/partials/navigation.blade.php", $navstr);
+		$new_navview = str_replace("[BOTH]", $bothstr, $navview);
+		$new_navview = str_replace("[GUEST]", $gueststr, $new_navview);
+		$new_navview = str_replace("[AUTH]", $authstr, $new_navview);
+		file_put_contents($this->full_app_path."/resources/views/partials/navigation.blade.php", $new_navview);
 	}
-	public function modifyAppView() {
-		$appview = file_get_contents($this->full_app_path."/resources/views/app.blade.php");
-		$newview = str_replace("[APPNAME]", ucwords($this->project_name), $appview);
-		file_put_contents($this->full_app_path."/resources/views/app.blade.php", $newview);
+	public function addPathToRoutesControllersAndViews($path) {
+		// add to routes.php
+		// add to controller file
+		// create view if it doesnt exist
 	}
 	public function createAndRunSeedFiles() {
 		echo "Creating table seeders...\n";
@@ -751,7 +792,7 @@ use App\\'.$singular.";", $thiscontroller);
 					$newviewcontent = $viewcontent;
 					$view_arr = explode(" ", trim($view));
 					if (count($view_arr) > 1) {
-						$view = $view_arr[0];
+						$view = $view_arr[1];
 					}
 					$str = str_replace("?", "", $view);
 					$str = str_replace("/", " ", $str);
