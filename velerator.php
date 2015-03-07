@@ -12,6 +12,8 @@ class Velerator {
 	private $brand_new_install;
 	private $extra_command;
 	private $schema;
+	private $listqueries;
+	private $is_api;
 
 	public function __construct($argv) {
 		// 1: project name
@@ -54,10 +56,13 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Initialized Database.");
 		shell_exec("cp ".$this->velerator_path."/velerator_files/.env ".$this->full_app_path."/.env");
 		shell_exec("cp ".$this->velerator_path."/velerator_files/.gitignore ".$this->full_app_path."/.gitignore");
-		$this->bringInFoundationCSS();
-		$this->gitAddAndCommitWithMessage("Added Foundation CSS.");
-		$this->velerateNAVIGATION();
-		$this->gitAddAndCommitWithMessage("Added NAVIGATION.");
+		
+		if (!$this->is_api) {
+			$this->bringInFoundationCSS();
+			$this->gitAddAndCommitWithMessage("Added Foundation CSS.");
+			$this->velerateNAVIGATION();
+			$this->gitAddAndCommitWithMessage("Added NAVIGATION.");
+		}
 		$this->velerateDBMODELS();
 		$this->gitAddAndCommitWithMessage("Added DBMODELS and routes.");
 		$this->velerateLINKTEXT();
@@ -66,18 +71,20 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added Model RELATIONSHIPS and pivot tables.");
 		$this->velerateCOMMANDS();
 		$this->gitAddAndCommitWithMessage("Added COMMANDS.");
-		$this->velerateMODELFUNCTIONS();
-		$this->gitAddAndCommitWithMessage("Added custom MODELFUNCTIONS.");
+		$this->velerateMODELQUERIES();
+		$this->gitAddAndCommitWithMessage("Added custom MODELQUERIES.");
+		$this->velerateLISTQUERIES();
+		$this->gitAddAndCommitWithMessage("Added custom LISTQUERIES.");
 		$this->velerateROUTECONTROLLERS();
 		$this->gitAddAndCommitWithMessage("Added Model Resource routes and controllers.");
 		$this->velerateROUTEVIEWS();
 		$this->gitAddAndCommitWithMessage("Added Model default Route views.");
-		$this->velerateROUTES();
-		$this->gitAddAndCommitWithMessage("Added Custom ROUTES.");
 		$this->addModelLinks();
 		$this->gitAddAndCommitWithMessage("Added Model Links.");
-		$this->addModelTabs();
-		$this->gitAddAndCommitWithMessage("Added Model Tabs.");
+		$this->addModelDetails();
+		$this->gitAddAndCommitWithMessage("Added Model Details or view Tabs.");
+		$this->velerateROUTES();
+		$this->gitAddAndCommitWithMessage("Added Custom ROUTES.");
 		shell_exec("php artisan migrate");
 		$this->createAndRunSeedFiles();
 		$this->gitAddAndCommitWithMessage("Added seeder files.");
@@ -116,6 +123,7 @@ class Velerator {
 		$this->velerator_path = getcwd();
 		$this->full_app_path = $this->velerator_path."/".$this->project_name;
 		$this->schema = [];
+		$this->listqueries = [];
 		
 		// Optional files for views
 		$this->project_files = "";
@@ -125,10 +133,13 @@ class Velerator {
 		}
 		$this->createProjectArray();
 
+		if (isset($this->project_config_array["API"])) {
+			$this->is_api = true;
+		} else {
+			$this->is_api = false;
+		}
+
 		echo "full_app_path = "			.$this->full_app_path."\n";
-		echo "velerator_path = "		.$this->velerator_path."\n";
-		echo "project_name = "			.$this->project_name."\n";
-		echo "project_files = "			.$this->project_files."\n";
 		echo "project_config_file = "	.$this->project_config_file."\n";
 
 	}
@@ -178,23 +189,25 @@ class Velerator {
 		mkdir($this->full_app_path."/resources/views/partials");
 		$navview = file_get_contents($this->velerator_path."/velerator_files/views/navigation.blade.php");
 		$navview = str_replace("[APPNAME]", ucwords($this->project_name), $navview);
-		foreach ($this->project_config_array['NAVIGATION'] as $filter => $nav_list) {
-			foreach ($nav_list as $value) {
-				$val_arr = explode("|", $value);
-				$text = trim($val_arr[0]);
-				$link = trim($val_arr[1]);
-				$navstr = "
-				<li><a href='/$link'>$text</a></li>";
-				switch ($filter) {
-					case 'Auth':
-						$authstr .= $navstr;
-						break;
-					case 'Both':
-						$bothstr .= $navstr;
-						break;
-					case 'Guest':
-						$gueststr .= $navstr;
-						break;
+		if (isset($this->project_config_array['NAVIGATION'])) {
+			foreach ($this->project_config_array['NAVIGATION'] as $filter => $nav_list) {
+				foreach ($nav_list as $value) {
+					$val_arr = explode("|", $value);
+					$text = trim($val_arr[0]);
+					$link = trim($val_arr[1]);
+					$navstr = "
+					<li><a href='/$link'>$text</a></li>";
+					switch ($filter) {
+						case 'Auth':
+							$authstr .= $navstr;
+							break;
+						case 'Both':
+							$bothstr .= $navstr;
+							break;
+						case 'Guest':
+							$gueststr .= $navstr;
+							break;
+					}
 				}
 			}
 		}
@@ -215,7 +228,7 @@ class Velerator {
 			foreach ($this->project_config_array['FAKEDATA'] as $object_and_count => $fields) {
 				$obj_cnt_arr = explode(" ", $object_and_count);
 				$object = $obj_cnt_arr[0];
-				echo $object."\n";
+				//echo $object."\n";
 				$fakerstr = "";
 				$count = $obj_cnt_arr[1];
 
@@ -402,12 +415,13 @@ class Velerator {
 				if (isset($this->schema[$table]['name']) || $singular == 'User') {
 					$functioncontent = 'return $this->name;';
 				} else {
-					$functioncontent = "return '$singular ".'$this->id;';
+					$functioncontent = 'return "'.$singular.' $this->id";';
 				}
 
 			}
 			$newstr .= "
-	public function getLinkTextAttribute() {
+	public function getLinkTextAttribute() 
+	{
 		$functioncontent
 	}";
 			$modelfile = file_get_contents($this->full_app_path."/app/$singular.php");
@@ -626,10 +640,28 @@ Route::get('$finalroute', '".$controller."@".$str."');";
 					$temparr['function'] = $str."($dependency_injection)";
 					$compact = "";
 					if ($dependency_injection) {
-						$compact = ", compact('$singular_lower')";
+						$compact = "compact('$singular_lower')";
+					} 
+					if ($this->is_api) {
+						if (!$compact) {
+							if (isset($this->listqueries[$singular][$str])) {
+								$temparr['body'] = "return $singular::$str()->get();";
+							} else {
+								$temparr['body'] = "return '$str';";	
+							}
+							
+						} else {
+							$temparr['body'] = "return $compact;";
+						}
+						
+					} else {
+						if ($dependency_injection) {
+							$compact = ", ".$compact;
+						}
+						$temparr['body'] = "return view('$routebase.$str'$compact);";
 					}
-					$temparr['body'] = "return view('$routebase.$str'$compact);";
 					$controller_arr[$controller][] = $temparr;
+				
 				}
 				
 			} else {
@@ -666,6 +698,34 @@ Route::get('".$routebase_arr[0]."', '".$controller."@".$routebase_arr[0]."');";
 				file_put_contents($controller_file_path, $newfile);
 			}
 		}
+		foreach ($this->listqueries as $model => $function_names) {
+			foreach ($function_names as $function_name => $function_type) {
+				$tablename = $this->getTableFromModelName($model);
+				$controllerpath = $this->full_app_path."/app/Http/Controllers/".ucwords($tablename)."Controller.php";
+				$controllerfile = file_get_contents($controllerpath);
+				// replaces the plain controller code, from LISTQUERIES
+				$replace_func = "return view('".$tablename.".".$function_name."')";
+				$new_func = "$".$tablename." = $model::$function_name()->get();
+		return view('".$tablename.".".$function_name."', compact('$tablename'));";
+				$newcontrollerfile = str_replace($replace_func, $new_func, $controllerfile);
+				file_put_contents($controllerpath, $newcontrollerfile);
+				// replaces the plain view code, from LISTQUERIES
+				$viewpath = $this->full_app_path."/resources/views/$tablename/$function_name.blade.php";
+				$viewfile = file_get_contents($viewpath);
+				$replace_view = "@section('content')
+photos topten
+@endsection";
+				$newview = "@section('content')
+	<ul>
+	@foreach ($".$tablename." as $".strtolower($model).") 
+		<li><a href='/$tablename/{{ $".strtolower($model)."->id }}'>{{ $".strtolower($model)."->link_text }}</a></li>
+	@endforeach
+	</ul>
+@endsection";
+				$newviewfile = str_replace($replace_view, $newview, $viewfile);
+				file_put_contents($viewpath, $newviewfile);
+			}
+		}
 	}
 
 	public function velerateROUTECONTROLLERS() {
@@ -695,7 +755,11 @@ use App\\'.$singular.";", $thiscontroller);
 		return $".$table.";");
 			$this->replaceEmptyFunction($controllerpath, "create", 'return view("'.$table.'.'.$singular_lower.'_create");');
 			$this->replaceEmptyFunction($controllerpath, "store",  'return view("'.$table.'.'.$singular_lower.'_store");');
-			$this->replaceEmptyFunction($controllerpath, "show",   "return view('".$singular_lower."', compact('".$singular_lower."'));");
+			if ($this->is_api) {
+				$this->replaceEmptyFunction($controllerpath, "show",   "return compact('".$singular_lower."');");
+			} else {
+				$this->replaceEmptyFunction($controllerpath, "show",   "return view('".$singular_lower."', compact('".$singular_lower."'));");
+			}
 			$this->replaceEmptyFunction($controllerpath, "edit",   "return view('".$table.".".$singular_lower."_edit', compact('".$singular_lower."'));");
 			$this->replaceEmptyFunction($controllerpath, "update", "return view('".$table.".".$singular_lower."_update', compact('".$singular_lower."'));");
 			$this->replaceEmptyFunction($controllerpath, "destroy","return view('".$table.".".$singular_lower."_destroy', compact('".$singular_lower."'));");
@@ -740,8 +804,8 @@ use App\\'.$singular.";", $thiscontroller);
 			file_put_contents($modelviewpath, $newfile);
 		}
 	}
-	public function addModelTabs() {
-		$modeltabs = [];
+	public function addModelDetails() {
+
 		foreach ($this->project_config_array['RELATIONSHIPS'] as $model => $relationships) {
 			foreach ($relationships as $relationship_str) {
 				$rel_arr = explode(" ", $relationship_str);
@@ -749,42 +813,47 @@ use App\\'.$singular.";", $thiscontroller);
 				$rel_model = $rel_arr[1];
 				if ($rel_type == 'hasMany' || $rel_type == 'belongsToMany') {
 					$tabname = $this->getTableFromModelName($rel_model);
-					$modeltabs[$model][$tabname]['tab_model'] = $rel_model;
-					$modeltabs[$model][$tabname]['tab_type'] = "relation";
+					$modeldetails[$model][$tabname]['tab_model'] = $rel_model;
+					$modeldetails[$model][$tabname]['tab_type'] = "relation";
 
 				}
 			}
 		}
-		foreach ($this->project_config_array['MODELFUNCTIONS'] as $model => $functions) {
+		foreach ($this->project_config_array['MODELQUERIES'] as $model => $functions) {
 			foreach ($functions as $func_str) {
 				$func_arr = explode("|", $func_str);
 				$func_name = trim($func_arr[0]);
 				$func_type = trim($func_arr[1]);
 				if ($func_type == 'filter' || $func_type == 'table') {
 					$func_table = trim($func_arr[2]);
-					$modeltabs[$model][$func_name]['tab_model'] = $this->singular_models[$func_table];
-					$modeltabs[$model][$func_name]['tab_type'] = "function";
+					$modeldetails[$model][$func_name]['tab_model'] = $this->singular_models[$func_table];
+					$modeldetails[$model][$func_name]['tab_type'] = "function";
 				}
 			}
 		}
-		print_r($modeltabs);
+		//print_r($modeldetails);
 		foreach ($this->singular_models as $table => $model) {
 			$singular_lower = strtolower($model);
 			$show_code = "";
-			$show_compact = "
-		return view('".$singular_lower."', compact('".$singular_lower."', ";
+			if ($this->is_api) {
+				$show_compact = "
+	return compact('".$singular_lower."', ";
+			} else {
+				$show_compact = "
+	return view('".$singular_lower."', compact('".$singular_lower."', ";
+			}
 			$tabs_list = "
 	";
 			$tabs_content = "
 			";
 			
-			if (isset($modeltabs[$model])) {
+			if (isset($modeldetails[$model])) {
 				$tabs_list .= '<div class="row">
 		<div class="columns small-12">
 			<ul class="tabs" data-tab data-options="deep_linking:true">';
 				$tabs_content .= '<div class="tabs-content">';
 				$once = 1;
-				foreach ($modeltabs[$model] as $related_function => $related_model_arr) {
+				foreach ($modeldetails[$model] as $related_function => $related_model_arr) {
 					
 					$related_model = $related_model_arr['tab_model'];
 					$related_type = $related_model_arr['tab_type'];
@@ -798,9 +867,10 @@ use App\\'.$singular.";", $thiscontroller);
 						$show_compact .= "'$related_function'";
 						$once = 0;
 					} else {
+						$show_compact .= ", '$related_function'";
 						$activestr = "";
 					}
-					$show_compact .= ", '$related_function'";
+					
 					$show_code .= '$'.$related_function.' = $'.$singular_lower.'->'.$related_function.'()'.$optional_get.';
 		';
 
@@ -816,7 +886,12 @@ use App\\'.$singular.";", $thiscontroller);
 					@endforeach
 				</div>';
 				}
-				$show_compact .= "));";
+				if ($this->is_api) {
+					$show_compact .= ");";
+				} else {
+					$show_compact .= "));";
+				}
+				
 				$tabs_list .= "
 			</ul>";
 				$tabs_content .= "
@@ -824,10 +899,15 @@ use App\\'.$singular.";", $thiscontroller);
 				$tabs_list .= $tabs_content;
 				$tabs_list .= "
 		</div>
-	</div>";	$controllerpath = $this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php";
+	</div>";	
+				$controllerpath = $this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php";
 				$controllerfile = file_get_contents($controllerpath);
-				$replacestr = "return view('".$singular_lower."', compact('".$singular_lower."'));";
-
+				if ($this->is_api) {
+					$replacestr = "return compact('".$singular_lower."');";
+				} else {
+					$replacestr = "return view('".$singular_lower."', compact('".$singular_lower."'));";
+				}
+				
 				$newcontroller = str_replace($replacestr, $show_code.$show_compact, $controllerfile);
 				file_put_contents($controllerpath, $newcontroller);
 
@@ -976,37 +1056,55 @@ $modelstr", $commandfile);
 
 	}
 
-	public function velerateMODELFUNCTIONS() {
+	public function velerateMODELQUERIES() {
 
-		foreach ($this->project_config_array['MODELFUNCTIONS'] as $model => $function_arr) {
-			$modelfile = file_get_contents($this->full_app_path."/app/$model.php");
-			$replacestr = 'protected $hidden = [];';
-			$function_str = "";
-			foreach ($function_arr as $key => $function_params) {
-				$function_body = "";
-				$function_arr = explode("|", trim($function_params));
-				$function_name = trim($function_arr[0]);
-				$function_type = trim($function_arr[1]);
-				if ($function_type == 'filter') {
-					$filter_table = trim($function_arr[2]);
-					$filter_logic = trim($function_arr[3]);
-					$function_body = $this->getFilterCode($filter_table, $filter_logic);
-				} else if ($function_type == 'scope') {
-					$function_name = 'scope'.ucfirst($function_name);
-					$function_body = "return ".trim($function_arr[2]).";";
-				} else if ($function_type == 'table') {
-					$function_body = "return ".trim($function_arr[3]).";";
-				}
-				$function_str .= "
+		foreach ($this->project_config_array['MODELQUERIES'] as $model => $function_arr) {
+			$this->addModelFunctions($model, $function_arr, 'instance');
+		}
+
+	}
+	public function velerateLISTQUERIES() {
+
+		foreach ($this->project_config_array['LISTQUERIES'] as $model => $function_arr) {
+			$this->addModelFunctions($model, $function_arr, 'list');
+		}
+
+	}
+	public function addModelFunctions($model, $function_arr, $query_type) {
+		$modelfile = file_get_contents($this->full_app_path."/app/$model.php");
+		$replacestr = 'protected $hidden = [];';
+		$function_str = "";
+		$tablename = $this->getTableFromModelName($model);
+		foreach ($function_arr as $key => $function_params) {
+
+			$function_body = "";
+			$function_arr = explode("|", trim($function_params));
+			$function_name = trim($function_arr[0]);
+			
+			$function_type = trim($function_arr[1]);
+			if ($query_type == 'list') {
+				$this->listqueries[$model][$function_name] = $function_type;
+			}
+			
+			if ($function_type == 'filter') {
+				$filter_table = trim($function_arr[2]);
+				$filter_logic = trim($function_arr[3]);
+				$function_body = $this->getFilterCode($filter_table, $filter_logic);
+			} else if ($function_type == 'scope') {
+				$function_name = 'scope'.ucfirst($function_name);
+				$function_body = "return ".'$this->'.trim($function_arr[2]).";";
+			} else if ($function_type == 'table') {
+				$function_body = "return ".trim($function_arr[3]).";";
+			}
+			
+			$function_str .= "
 	public function $function_name()
 	{
 		$function_body
 	}";
-			}
-			$newfile = str_replace($replacestr, $replacestr.$function_str, $modelfile);
-			file_put_contents($this->full_app_path."/app/$model.php", $newfile);
 		}
-
+		$newfile = str_replace($replacestr, $replacestr.$function_str, $modelfile);
+		file_put_contents($this->full_app_path."/app/$model.php", $newfile);
 	}
 	public function getFilterCode($filter_table, $filter_logic) {
 		$singular = strtolower($this->singular_models[$filter_table]);
