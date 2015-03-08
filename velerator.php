@@ -14,6 +14,7 @@ class Velerator {
 	private $schema;
 	private $listqueries;
 	private $is_api;
+	private $demopage_array;
 
 	public function __construct($argv) {
 		// 1: project name
@@ -88,6 +89,8 @@ class Velerator {
 		shell_exec("php artisan migrate");
 		$this->createAndRunSeedFiles();
 		$this->gitAddAndCommitWithMessage("Added seeder files.");
+		$this->createDemoPage();
+		$this->gitAddAndCommitWithMessage("Added Demo page.");
 
 		shell_exec("git add .");
 		shell_exec("git commit -am 'Velerator files generated ".time()."'");
@@ -124,6 +127,9 @@ class Velerator {
 		$this->full_app_path = $this->velerator_path."/".$this->project_name;
 		$this->schema = [];
 		$this->listqueries = [];
+		$this->demopage_array = [];
+		$this->demopage_array["APP"] = ucwords($this->project_name);
+		$this->demopage_array["FILE"] = $this->project_config_file;
 		
 		// Optional files for views
 		$this->project_files = "";
@@ -713,7 +719,7 @@ Route::get('".$routebase_arr[0]."', '".$controller."@".$routebase_arr[0]."');";
 				$viewpath = $this->full_app_path."/resources/views/$tablename/$function_name.blade.php";
 				$viewfile = file_get_contents($viewpath);
 				$replace_view = "@section('content')
-photos topten
+$tablename $function_name
 @endsection";
 				$newview = "@section('content')
 	<ul>
@@ -1186,6 +1192,17 @@ $modelstr", $commandfile);
 		}
 		//print_r($finalarray);
 		$this->project_config_array = $finalarray;
+	}
+	public function createDemoPage() {
+		$routes = file_get_contents($this->full_app_path."/app/Http/routes.php");
+		$newroutes = str_replace("Route::get('/', 'WelcomeController@index');", "Route::get('/', function() {
+	return view('velerator_demo');
+});", $routes);
+		file_put_contents($this->full_app_path."/app/Http/routes.php", $newroutes);
+		$demopage = file_get_contents($this->velerator_path."/velerator_files/views/demo.blade.php");
+		$newdemopage = str_replace("[APP]", $this->demopage_array['APP'], $demopage);
+		$newdemopage = str_replace("[FILE]", $this->demopage_array['FILE'], $newdemopage);
+		file_put_contents($this->full_app_path."/resources/views/velerator_demo.blade.php", $newdemopage);
 	}
 
 }
