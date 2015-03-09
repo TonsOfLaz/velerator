@@ -754,7 +754,9 @@ use App\\'.$singular.";", $thiscontroller);
 			// Include resource routes
 			$routestr .= "Route::model('$table', 'App\\$singular');\n";
 			$routestr .= "Route::resource('$table', '$capstable"."Controller');\n";
-
+			$this->demopage_array['ROUTES']['GET Resources'][] = $table."/{id}";
+			$this->demopage_array['ROUTES']['GET Resources'][] = $table."/{id}/create";
+			$this->demopage_array['ROUTES']['GET Resources'][] = $table."/{id}/edit";
 
 			// Add resource functions
 			$controllerpath = "./app/Http/Controllers/".$capstable."Controller.php";
@@ -1198,7 +1200,7 @@ $modelstr", $commandfile);
 		foreach ($this->schema as $model => $schema) {
 			$this->demopage_array['MODELS'][$model]['schema'] = $schema;
 		}
-		print_r($this->demopage_array);
+		//print_r($this->demopage_array);
 		$routes = file_get_contents($this->full_app_path."/app/Http/routes.php");
 		$newroutes = str_replace("Route::get('/', 'WelcomeController@index');", "Route::get('/', function() {
 	return view('velerator_demo');
@@ -1207,6 +1209,18 @@ $modelstr", $commandfile);
 		$demopage = file_get_contents($this->velerator_path."/velerator_files/views/demo.blade.php");
 		$newdemopage = str_replace("[APP]", $this->demopage_array['APP'], $demopage);
 		$newdemopage = str_replace("[FILE]", $this->demopage_array['FILE'], $newdemopage);
+		$routelist = "";
+		foreach ($this->demopage_array['ROUTES'] as $routetype => $routenames) {
+			$routelist .= "<h3>".$routetype."</h3>";
+			$routelist .= "<ul>";
+			foreach ($routenames as $routename) {
+				$linkroutename = str_replace("{id}", 1, $routename);
+				$routelist .= "<li><a href='/$linkroutename'>".$routename."</a></li>";
+			}
+			$routelist .= "</ul>";
+		}
+		$newdemopage = str_replace("[ROUTES]", $routelist, $newdemopage);
+
 		$modelsections = "";
 		foreach ($this->demopage_array['MODELS'] as $modelname => $modelarr) {
 			if (isset($this->singular_models[$modelname])) {

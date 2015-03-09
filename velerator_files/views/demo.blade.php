@@ -20,6 +20,12 @@ Route::get('/', 'WelcomeController@index');</pre>
 	</div>
 	
 </div>
+<div class="row">
+	<div class="columns small-12">
+		[ROUTES]
+	</div>
+</div>
+
 [MODELSECTIONS]
 <style>
 	pre {
