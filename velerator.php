@@ -707,6 +707,7 @@ Route::get('".$routebase_arr[0]."', '".$controller."@".$routebase_arr[0]."');";
 		foreach ($this->listqueries as $model => $function_names) {
 			foreach ($function_names as $function_name => $function_type) {
 				$tablename = $this->getTableFromModelName($model);
+				$this->demopage_array["MODELS"][$tablename]['listqueries'][] = $function_name;
 				$controllerpath = $this->full_app_path."/app/Http/Controllers/".ucwords($tablename)."Controller.php";
 				$controllerfile = file_get_contents($controllerpath);
 				// replaces the plain controller code, from LISTQUERIES
@@ -1194,6 +1195,10 @@ $modelstr", $commandfile);
 		$this->project_config_array = $finalarray;
 	}
 	public function createDemoPage() {
+		foreach ($this->schema as $model => $schema) {
+			$this->demopage_array['MODELS'][$model]['schema'] = $schema;
+		}
+		print_r($this->demopage_array);
 		$routes = file_get_contents($this->full_app_path."/app/Http/routes.php");
 		$newroutes = str_replace("Route::get('/', 'WelcomeController@index');", "Route::get('/', function() {
 	return view('velerator_demo');
@@ -1202,6 +1207,50 @@ $modelstr", $commandfile);
 		$demopage = file_get_contents($this->velerator_path."/velerator_files/views/demo.blade.php");
 		$newdemopage = str_replace("[APP]", $this->demopage_array['APP'], $demopage);
 		$newdemopage = str_replace("[FILE]", $this->demopage_array['FILE'], $newdemopage);
+		$modelsections = "";
+		foreach ($this->demopage_array['MODELS'] as $modelname => $modelarr) {
+			if (isset($this->singular_models[$modelname])) {
+				$singular = $this->singular_models[$modelname];
+				$uppercase = ucwords($modelname);
+			} else {
+				$singular = "Pivot table: ".ucwords(str_replace("_", " / ",$modelname));
+				$uppercase = $singular;
+			}
+			$lowercase = strtolower($singular);
+			$modelsections .= "<div class='row'>
+		<div class='columns panel'><h3>$uppercase</h3>
+		</div>
+	</div>
+	<div class='row'>
+		<div class='columns large-3 small-12'>
+			<table>
+				<tr><th colspan=2>$modelname</th></tr>
+				<tr><td>id</td><td>unsignedInteger</td></tr>";
+			foreach ($modelarr['schema'] as $skey => $stype) {
+				$modelsections .= "<tr><td>$skey</td><td>$stype</td></tr>";
+			}
+			$modelsections .= "<tr><td>created_at</td><td>date</td></tr>
+				<tr><td>updated_at</td><td>date</td></tr>
+		 		</table>
+		 	</div>
+
+		 	<div class='columns panel large-6 small-12'>
+				Random Example
+		 	</div>
+
+		 	<div class='columns large-3 small-12'>
+		 		$singular Lists
+		 		";
+		 		if (isset($modelarr['listqueries'])) {
+			 		foreach ($modelarr['listqueries'] as $listquery) {
+				 		$modelsections .= $listquery;
+				 	}
+				 }
+		 	$modelsections .= "</div>
+
+		 </div>";
+		}
+		$newdemopage = str_replace("[MODELSECTIONS]", $modelsections, $newdemopage);
 		file_put_contents($this->full_app_path."/resources/views/velerator_demo.blade.php", $newdemopage);
 	}
 
