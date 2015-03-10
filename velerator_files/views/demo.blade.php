@@ -39,5 +39,13 @@ Route::get('/', 'WelcomeController@index');</pre>
 		color: #EEE;
 		padding: 5px;
 	}
+	table {
+		width: 100%;
+	}
+	tr.divider td {
+		background: rgb(21,77,131);
+		color: white;
+		font-size: 1.2em;
+	}
 </style>
 @stop

@@ -627,6 +627,7 @@ class Velerator {
 					if (count($route_arr) > 1) {
 						$str = $route_arr[1];
 						$finalroute = "$routebase/".$route_arr[0];
+						$this->demopage_array['ROUTES']['GET'][$singular][$finalroute] = "Custom route defined in ".$this->project_config_file." ROUTES, view and controller function are named ".$route_arr[1];
 					} else {
 						if (strpos("a".$route, "?") > 0) {
 							$dependency_injection = "$singular ".'$'."$singular_lower";
@@ -636,7 +637,9 @@ class Velerator {
 						$str = ucwords($str);
 				        $str = str_replace(" ", "", $str);
 				        $str = lcfirst($str);
+				        $idroute = str_replace("?", '{id}', $route);
 				        $route = str_replace("?", '{'.$singular_lower.'}', $route);
+				        $this->demopage_array['ROUTES']['GET'][$singular]["$routebase/$idroute"] = "Custom route defined in ".$this->project_config_file." ROUTES";
 						$finalroute = "$routebase/$route";
 					}
 					
@@ -754,9 +757,12 @@ use App\\'.$singular.";", $thiscontroller);
 			// Include resource routes
 			$routestr .= "Route::model('$table', 'App\\$singular');\n";
 			$routestr .= "Route::resource('$table', '$capstable"."Controller');\n";
-			$this->demopage_array['ROUTES']['GET Resources'][] = $table."/{id}";
-			$this->demopage_array['ROUTES']['GET Resources'][] = $table."/{id}/create";
-			$this->demopage_array['ROUTES']['GET Resources'][] = $table."/{id}/edit";
+			$this->demopage_array['ROUTES']['GET'][$singular][$table."/create"] = "Create a new $singular";
+			$this->demopage_array['ROUTES']['GET'][$singular][$table."/{id}"] = "View one $singular";
+			$this->demopage_array['ROUTES']['GET'][$singular][$table."/{id}/edit"] = "Edit an existing $singular";
+			$this->demopage_array['ROUTES']['POST'][$singular][$table."/{id}/store"] = "Save a new $singular";
+			$this->demopage_array['ROUTES']['POST'][$singular][$table."/{id}/update"] = "Update an existing $singular";
+			$this->demopage_array['ROUTES']['POST'][$singular][$table."/{id}/destroy"] = "Delete an existing $singular";
 
 			// Add resource functions
 			$controllerpath = "./app/Http/Controllers/".$capstable."Controller.php";
@@ -804,7 +810,7 @@ use App\\'.$singular.";", $thiscontroller);
 			if (isset($modellinks[$model])) {
 				//$links_html .= $modellinks[$model][$table]['function'];
 				foreach ($modellinks[$model] as $func => $rel_model) {
-					$links_html .= '<a href="/'.$this->getTableFromModelName($rel_model).'/{{ $'.strtolower($model)."->".$func."->id }}".'">{{ $'.strtolower($model)."->".$func."->link_text }}</a><br>";
+					$links_html .= $rel_model.': <a href="/'.$this->getTableFromModelName($rel_model).'/{{ $'.strtolower($model)."->".$func."->id }}".'">{{ $'.strtolower($model)."->".$func."->link_text }}</a><br>";
 				}
 			}
 			$modelviewpath = $this->full_app_path."/resources/views/".strtolower($model).".blade.php";
@@ -863,7 +869,7 @@ use App\\'.$singular.";", $thiscontroller);
 				$tabs_content .= '<div class="tabs-content">';
 				$once = 1;
 				foreach ($modeldetails[$model] as $related_function => $related_model_arr) {
-					
+					$this->demopage_array['ROUTES']['GET'][$model][$table."/{id}#$related_function"] = "View the $related_function associated with the $model, in a tab.";
 					$related_model = $related_model_arr['tab_model'];
 					$related_type = $related_model_arr['tab_type'];
 					$optional_get = "";
@@ -1209,61 +1215,34 @@ $modelstr", $commandfile);
 		$demopage = file_get_contents($this->velerator_path."/velerator_files/views/demo.blade.php");
 		$newdemopage = str_replace("[APP]", $this->demopage_array['APP'], $demopage);
 		$newdemopage = str_replace("[FILE]", $this->demopage_array['FILE'], $newdemopage);
-		$routelist = "";
-		foreach ($this->demopage_array['ROUTES'] as $routetype => $routenames) {
-			$routelist .= "<h3>".$routetype."</h3>";
-			$routelist .= "<ul>";
-			foreach ($routenames as $routename) {
-				$linkroutename = str_replace("{id}", 1, $routename);
-				$routelist .= "<li><a href='/$linkroutename'>".$routename."</a></li>";
+		$routelist = "<table>";
+		foreach ($this->demopage_array['ROUTES'] as $routetype => $models) {
+			$routelist .= "<tr class='divider'><td colspan=3>".$routetype."</td></tr>";
+			$lastmodelname = "";
+			foreach ($models as $modelname => $routenames) {
+				foreach ($routenames as $routename => $message) {
+					$routelist .= "<tr>";
+					if ($lastmodelname != $modelname) {
+						$routelist .= "<td>$modelname</td>";
+					} else {
+						$routelist .= "<td></td>";
+					}
+					$linkroutename = str_replace("{id}", 1, $routename);
+					if ($routetype == 'GET') {
+						$routelist .= "<td><a href='/$linkroutename'>".$routename."</a></td>";
+					} else {
+						$routelist .= "<td>$routename</td>";
+					}
+					$routelist .= "<td>$message</td>";
+					$routelist .= "</tr>";
+					$lastmodelname = $modelname;
+				}
 			}
-			$routelist .= "</ul>";
 		}
+		$routelist .= "</table>";
 		$newdemopage = str_replace("[ROUTES]", $routelist, $newdemopage);
 
 		$modelsections = "";
-		foreach ($this->demopage_array['MODELS'] as $modelname => $modelarr) {
-			if (isset($this->singular_models[$modelname])) {
-				$singular = $this->singular_models[$modelname];
-				$uppercase = ucwords($modelname);
-			} else {
-				$singular = "Pivot table: ".ucwords(str_replace("_", " / ",$modelname));
-				$uppercase = $singular;
-			}
-			$lowercase = strtolower($singular);
-			$modelsections .= "<div class='row'>
-		<div class='columns panel'><h3>$uppercase</h3>
-		</div>
-	</div>
-	<div class='row'>
-		<div class='columns large-3 small-12'>
-			<table>
-				<tr><th colspan=2>$modelname</th></tr>
-				<tr><td>id</td><td>unsignedInteger</td></tr>";
-			foreach ($modelarr['schema'] as $skey => $stype) {
-				$modelsections .= "<tr><td>$skey</td><td>$stype</td></tr>";
-			}
-			$modelsections .= "<tr><td>created_at</td><td>date</td></tr>
-				<tr><td>updated_at</td><td>date</td></tr>
-		 		</table>
-		 	</div>
-
-		 	<div class='columns panel large-6 small-12'>
-				Random Example
-		 	</div>
-
-		 	<div class='columns large-3 small-12'>
-		 		$singular Lists
-		 		";
-		 		if (isset($modelarr['listqueries'])) {
-			 		foreach ($modelarr['listqueries'] as $listquery) {
-				 		$modelsections .= $listquery;
-				 	}
-				 }
-		 	$modelsections .= "</div>
-
-		 </div>";
-		}
 		$newdemopage = str_replace("[MODELSECTIONS]", $modelsections, $newdemopage);
 		file_put_contents($this->full_app_path."/resources/views/velerator_demo.blade.php", $newdemopage);
 	}
