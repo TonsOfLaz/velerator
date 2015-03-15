@@ -13,6 +13,7 @@ class Velerator {
 	private $extra_command;
 	private $schema;
 	private $listqueries;
+	private $nestedroutes;
 	private $is_api;
 	private $demopage_array;
 
@@ -86,11 +87,15 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added Model Details or view Tabs.");
 		$this->velerateROUTES();
 		$this->gitAddAndCommitWithMessage("Added Custom ROUTES.");
+		$this->velerateNestedRoutes();
+		$this->gitAddAndCommitWithMessage("Added Nested Routes.");
 		shell_exec("php artisan migrate");
 		$this->createAndRunSeedFiles();
 		$this->gitAddAndCommitWithMessage("Added seeder files.");
 		$this->createDemoPage();
 		$this->gitAddAndCommitWithMessage("Added Demo page.");
+
+		print_r($this->nestedroutes);
 
 		shell_exec("git add .");
 		shell_exec("git commit -am 'Velerator files generated ".time()."'");
@@ -127,6 +132,7 @@ class Velerator {
 		$this->full_app_path = $this->velerator_path."/".$this->project_name;
 		$this->schema = [];
 		$this->listqueries = [];
+		$this->nestedroutes = [];
 		$this->demopage_array = [];
 		$this->demopage_array["APP"] = ucwords($this->project_name);
 		$this->demopage_array["FILE"] = $this->project_config_file;
@@ -513,6 +519,9 @@ class Velerator {
 																		$relationship_field);
 						break;
 					case 'belongsTo':
+						if ($relationship_model != 'User') {
+							$this->nestedroutes[$model][$relationship_model] = 1;	
+						}
 						if (!$function_name) {
 							$function_name = strtolower($relationship_model);
 						}
@@ -738,6 +747,7 @@ $tablename $function_name
 		}
 	}
 
+
 	public function velerateROUTECONTROLLERS() {
 		$oldroutes = file_get_contents($this->full_app_path."/app/Http/routes.php");
 
@@ -783,6 +793,41 @@ use App\\'.$singular.";", $thiscontroller);
 		$newroutes = str_replace($replace, $replace."\n".$routestr, $oldroutes);
 		file_put_contents("./app/Http/routes.php", $newroutes);
 
+	}
+	public function velerateNestedRoutes() {
+		$routepath = "";
+		$routesfile = file_get_contents($this->full_app_path."/app/Http/routes.php");
+		foreach ($this->nestedroutes as $model => $belongsto_arr) {
+			foreach ($belongsto_arr as $related_model => $dud) {
+				$routes = [];
+				$table = $this->getTableFromModelName($model);
+				$related_table = $this->getTableFromModelName($related_model);
+				$capstable = ucwords($table);
+				
+				if (isset($this->nestedroutes[$related_model])) {
+					foreach ($this->nestedroutes[$related_model] as $parent_model => $seconddud) {
+						$parent_table = $this->getTableFromModelName($parent_model);
+						$routes[] = "$parent_table.$related_table.$table";
+					}
+				}
+				$routes[] = $related_table.".".$table;
+				foreach ($routes as $routepath) {
+					$replacestr = "Route::resource('$table', '$capstable"."Controller');\n";
+					$nestedstr = "Route::resource('$routepath', '$capstable"."Controller');\n";
+					$routesfile = str_replace($replacestr, $replacestr.$nestedstr, $routesfile);
+
+					$uripath = str_replace(".", "/{id}/", $routepath);
+					$this->demopage_array['ROUTES']['GET REDUNDANT'][$model][$uripath."/create"] = "Create a new $model";
+					$this->demopage_array['ROUTES']['GET REDUNDANT'][$model][$uripath."/{id}"] = "View one $model";
+					$this->demopage_array['ROUTES']['GET REDUNDANT'][$model][$uripath."/{id}/edit"] = "Edit an existing $model";
+					$this->demopage_array['ROUTES']['POST REDUNDANT'][$model][$uripath."/{id}/store"] = "Save a new $model";
+					$this->demopage_array['ROUTES']['POST REDUNDANT'][$model][$uripath."/{id}/update"] = "Update an existing $model";
+					$this->demopage_array['ROUTES']['POST REDUNDANT'][$model][$uripath."/{id}/destroy"] = "Delete an existing $model";
+				}
+				
+			}
+		}
+		file_put_contents($this->full_app_path."/app/Http/routes.php", $routesfile);
 	}
 	public function addModelLinks() {
 		$modellinks = [];
@@ -1217,7 +1262,7 @@ $modelstr", $commandfile);
 		$newdemopage = str_replace("[FILE]", $this->demopage_array['FILE'], $newdemopage);
 		$routelist = "<table>";
 		foreach ($this->demopage_array['ROUTES'] as $routetype => $models) {
-			$routelist .= "<tr class='divider'><td colspan=3>".$routetype."</td></tr>";
+			$routelist .= "<tr class='divider'><td colspan=3>".$routetype." Requests</td></trk>";
 			$lastmodelname = "";
 			foreach ($models as $modelname => $routenames) {
 				foreach ($routenames as $routename => $message) {
@@ -1228,7 +1273,7 @@ $modelstr", $commandfile);
 						$routelist .= "<td></td>";
 					}
 					$linkroutename = str_replace("{id}", 1, $routename);
-					if ($routetype == 'GET') {
+					if ($routetype == 'GET' || $routetype == 'GET REDUNDANT') {
 						$routelist .= "<td><a href='/$linkroutename'>".$routename."</a></td>";
 					} else {
 						$routelist .= "<td>$routename</td>";
