@@ -95,7 +95,7 @@ class Velerator {
 		$this->createDemoPage();
 		$this->gitAddAndCommitWithMessage("Added Demo page.");
 
-		print_r($this->nestedroutes);
+		//print_r($this->nestedroutes);
 
 		shell_exec("git add .");
 		shell_exec("git commit -am 'Velerator files generated ".time()."'");
@@ -718,18 +718,30 @@ Route::get('".$routebase_arr[0]."', '".$controller."@".$routebase_arr[0]."');";
 		}
 		foreach ($this->listqueries as $model => $function_names) {
 			foreach ($function_names as $function_name => $function_type) {
+
 				$tablename = $this->getTableFromModelName($model);
 				$this->demopage_array["MODELS"][$tablename]['listqueries'][] = $function_name;
+				$this->demopage_array['ROUTES']['GET'][$model][$tablename."?type=".$function_name] = "List Query: $function_name ".ucwords($tablename);
 				$controllerpath = $this->full_app_path."/app/Http/Controllers/".ucwords($tablename)."Controller.php";
 				$controllerfile = file_get_contents($controllerpath);
 				// replaces the plain controller code, from LISTQUERIES
-				$replace_func = "return view('".$tablename.".".$function_name."')";
-				$new_func = "$".$tablename." = $model::$function_name()->get();
-		return view('".$tablename.".".$function_name."', compact('$tablename'));";
-				$newcontrollerfile = str_replace($replace_func, $new_func, $controllerfile);
+				$replace_func = 'switch ($type) {';
+				$new_func = "
+			case '$function_name':
+				$".$tablename." = $model::$function_name()->get();
+				break;";
+				$newcontrollerfile = str_replace($replace_func, $replace_func.$new_func, $controllerfile);
 				file_put_contents($controllerpath, $newcontrollerfile);
 				// replaces the plain view code, from LISTQUERIES
 				$viewpath = $this->full_app_path."/resources/views/$tablename/$function_name.blade.php";
+				if (!file_exists($viewpath)) {
+					$title = ucwords($tablename)." ".$function_name;
+					$viewcontent = "@extends('$tablename.list')
+@section('title')
+$title
+@endsection";
+					file_put_contents($viewpath, $viewcontent);
+				}
 				$viewfile = file_get_contents($viewpath);
 				$replace_view = "@section('content')
 $tablename $function_name
@@ -762,11 +774,13 @@ $tablename $function_name
 			$newcontroller = str_replace("use App\Http\Controllers\Controller;", 'use App\Http\Controllers\Controller;
 use App\\'.$singular.";", $thiscontroller);
 			$newcontroller = str_replace('$id', $singular.' $'.$singular_lower, $newcontroller);
+			$newcontroller = str_replace('index()', 'index(Request $request)', $newcontroller);
 			file_put_contents($this->full_app_path."/app/Http/Controllers/".$capstable."Controller.php", $newcontroller);
 
 			// Include resource routes
 			$routestr .= "Route::model('$table', 'App\\$singular');\n";
 			$routestr .= "Route::resource('$table', '$capstable"."Controller');\n";
+			$this->demopage_array['ROUTES']['GET'][$singular][$table] = "See all $capstable.";
 			$this->demopage_array['ROUTES']['GET'][$singular][$table."/create"] = "Create a new $singular";
 			$this->demopage_array['ROUTES']['GET'][$singular][$table."/{id}"] = "View one $singular";
 			$this->demopage_array['ROUTES']['GET'][$singular][$table."/{id}/edit"] = "Edit an existing $singular";
@@ -775,9 +789,19 @@ use App\\'.$singular.";", $thiscontroller);
 			$this->demopage_array['ROUTES']['POST'][$singular][$table."/{id}/destroy"] = "Delete an existing $singular";
 
 			// Add resource functions
+			if ($this->is_api) {
+				$returnformat = 'return $'.$table.';';
+			} else {
+				$returnformat = 'return view("'.$table.'.list", compact("'.$table.'"));';
+			}
 			$controllerpath = "./app/Http/Controllers/".$capstable."Controller.php";
-			$this->replaceEmptyFunction($controllerpath, "index",  "$".$table." = ".$singular."::all();
-		return $".$table.";");
+			$this->replaceEmptyFunction($controllerpath, "index",  '$type = $request->input("type");
+		switch ($type) {
+			default:
+				$'.$table.' = '.$singular.'::all();
+		}
+		'.$returnformat.'');
+
 			$this->replaceEmptyFunction($controllerpath, "create", 'return view("'.$table.'.'.$singular_lower.'_create");');
 			$this->replaceEmptyFunction($controllerpath, "store",  'return view("'.$table.'.'.$singular_lower.'_store");');
 			if ($this->is_api) {
@@ -914,7 +938,7 @@ use App\\'.$singular.";", $thiscontroller);
 				$tabs_content .= '<div class="tabs-content">';
 				$once = 1;
 				foreach ($modeldetails[$model] as $related_function => $related_model_arr) {
-					$this->demopage_array['ROUTES']['GET'][$model][$table."/{id}#$related_function"] = "View the $related_function associated with the $model, in a tab.";
+					
 					$related_model = $related_model_arr['tab_model'];
 					$related_type = $related_model_arr['tab_type'];
 					$optional_get = "";
@@ -949,6 +973,7 @@ use App\\'.$singular.";", $thiscontroller);
 				if ($this->is_api) {
 					$show_compact .= ");";
 				} else {
+					$this->demopage_array['ROUTES']['GET'][$model][$table."/{id}#$related_function"] = "View the $related_function associated with the $model, in a tab.";
 					$show_compact .= "));";
 				}
 				
@@ -984,6 +1009,8 @@ use App\\'.$singular.";", $thiscontroller);
 			mkdir($this->full_app_path."/resources/views/$table");
 			$mainview = $this->getModelViewMain($singular);
 			file_put_contents($this->full_app_path."/resources/views/".strtolower($singular).".blade.php", $mainview);
+			$mainlist = $this->getListViewMain($table);
+			file_put_contents($this->full_app_path."/resources/views/".$table."/list.blade.php", $mainlist);
 			$this->addModelViewCommand($table, $singular, "create");
 			$this->addModelViewCommand($table, $singular, "store");
 			$this->addModelViewCommand($table, $singular, "edit");
@@ -1058,6 +1085,40 @@ $model
 	[TABS]
 @endsection";
 	}
+		public function getListViewMain($table) {
+			$pagename = ucwords($table);
+			$model = $this->singular_models[$table];
+		return "
+@extends('app')
+
+@section('title')
+$pagename
+@endsection
+
+@section('content')
+	<div class='row'>
+		<div class='columns small-12'>
+			<h2>$pagename</h2>
+		</div>
+	</div>
+	<div class='row'>
+		<div class='columns small-12'>
+			<table>
+				
+				@foreach ($".$table." as $".strtolower($model).")
+
+					<tr>
+						<td><a href='/".$table."/{{ $".strtolower($model)."->id }}'>{{ $".strtolower($model)."->link_text }}</a></td>
+						@foreach ($".strtolower($model)."->getAttributes() as ".'$attribute'." => ".'$value'.")
+							<td>{{ ".'$value'." }}</td>
+						@endforeach
+					</tr>
+				@endforeach
+			</table>
+		</div>
+	</div>
+@endsection";
+	}
 	public function addModelViewCommand($table, $model, $command) {
 		$linktext = "{{ $".strtolower($model)."->link_text }}";
 		switch ($command) {
@@ -1126,6 +1187,7 @@ $modelstr", $commandfile);
 	public function velerateLISTQUERIES() {
 
 		foreach ($this->project_config_array['LISTQUERIES'] as $model => $function_arr) {
+			// Make this a query route
 			$this->addModelFunctions($model, $function_arr, 'list');
 		}
 
