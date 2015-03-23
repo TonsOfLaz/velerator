@@ -133,6 +133,7 @@ class Velerator {
 		$this->schema = [];
 		$this->listqueries = [];
 		$this->nestedroutes = [];
+		$this->belongs_to_array = [];
 		$this->demopage_array = [];
 		$this->demopage_array["APP"] = ucwords($this->project_name);
 		$this->demopage_array["FILE"] = $this->project_config_file;
@@ -302,6 +303,12 @@ class Velerator {
 
 		// ===================================> ADD COMPOSER TOOLS
 		chdir($this->full_app_path);
+
+		shell_exec("composer require laravelcollective/html");
+		$this->addProvider("Collective\Html\HtmlServiceProvider");
+		$this->addAlias("Form", "Collective\Html\FormFacade");
+      	$this->addAlias("Html", "Collective\Html\HtmlFacade");
+		
 		if (isset($this->project_config_array['FAKEDATA'])) {
 			
 			echo "Adding 'Faker' tool...\n";
@@ -317,13 +324,13 @@ class Velerator {
 					$value = trim($type_value_arr[1]);
 					switch ($type) {
 						case "provider":
-							//addProvider($value);
+							$this->addProvider($value);
 							break;
 						case "alias":
 							$value_arr = explode(" ", $value);
 							$name = $value_arr[0];
 							$path = $value_arr[1];
-							//addFacade($name, $path);
+							$this->addAlias($name, $path);
 							break;
 					}
 				}
@@ -522,6 +529,7 @@ class Velerator {
 						if ($relationship_model != 'User') {
 							$this->nestedroutes[$model][$relationship_model] = 1;	
 						}
+						$this->belongs_to_array[$model]['belongsto'][$relationship_model] = $relationship_field;
 						if (!$function_name) {
 							$function_name = strtolower($relationship_model);
 						}
@@ -553,6 +561,7 @@ class Velerator {
 						if (!$function_name) {
 							$function_name = $this->getTableFromModelName($relationship_model);
 						}
+						$this->belongs_to_array[$model]['belongstomany'][$relationship_model] = $relationship_field;
 						$function_str .= $this->getRelationshipFunction($function_name, 
 																		$relationship_model, 
 																		$relationship_type,
@@ -612,6 +621,74 @@ class Velerator {
 			$linkfields_arr[] = $secondary_arr;
 			$this->addFieldArrayToCreateSchema($pivot_table_name, $linkfields_arr);
 		}
+	}
+	public function addCreateForm($table, $model) {
+		print_r($this->belongs_to_array);
+		exit();
+		if ($table == 'users') {
+			return;
+		}
+		$singular_lower = strtolower($model);
+		$viewpath = $table.'/form';
+		$formfields = "";
+		foreach ($this->schema[$table] as $fieldname => $fieldtype) {
+			$inputtype = "";
+			$formfields .= "<div class='row'>
+		<div class='small-12 columns'>";
+			switch($fieldtype) {
+				case 'string':
+					$formfields .= "
+				{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
+				{!! Form::text('$fieldname') !!}
+		";
+					break;
+				case 'boolean':
+					$formfields .= "
+				{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
+				{!! Form::checkbox('$fieldname') !!}
+		";
+					break;
+				case 'unsignedInteger':
+					$formfields .= "
+				{!! Form::label('$fieldname', '".str_replace('_id', '', ucwords($fieldname))."') !!}
+				{!! Form::select( '$fieldname') !!}
+		";
+					break;
+				default:
+					$inputtype = '';
+			}
+			if (!$inputtype) {
+				continue;
+			}
+			$formfields .= "</div>
+	</div>";
+		}
+		$formcode = "
+@extends('app')
+
+@section('title')
+Add a New $model
+@endsection
+
+@section('content')
+	<div class='row'>
+		<div class='small-12 columns'>
+			<h1>Add a new $model</h1>
+		</div>
+	</div>
+	{!! Form::open(['url' => '$table']) !!}
+	$formfields
+	<div class='row'>
+		<div class='small-12 columns'>
+			{!! Form::submit('Create', ['class' => 'button expand']) !!}
+		</div>
+	</div>
+	{!! Form::close() !!}
+		</div>
+	</div>
+@endsection";
+		file_put_contents($this->full_app_path."/resources/views/$viewpath.blade.php", $formcode);
+		//exit();
 	}
 
 	public function velerateROUTES() {
@@ -775,6 +852,7 @@ $tablename $function_name
 use App\\'.$singular.";", $thiscontroller);
 			$newcontroller = str_replace('$id', $singular.' $'.$singular_lower, $newcontroller);
 			$newcontroller = str_replace('index()', 'index(Request $request)', $newcontroller);
+			$newcontroller = str_replace('store()', 'store(Request $request)', $newcontroller);
 			file_put_contents($this->full_app_path."/app/Http/Controllers/".$capstable."Controller.php", $newcontroller);
 
 			// Include resource routes
@@ -802,12 +880,16 @@ use App\\'.$singular.";", $thiscontroller);
 		}
 		'.$returnformat.'');
 
-			$this->replaceEmptyFunction($controllerpath, "create", 'return view("'.$table.'.'.$singular_lower.'_create");');
-			$this->replaceEmptyFunction($controllerpath, "store",  'return view("'.$table.'.'.$singular_lower.'_store");');
+			$this->replaceEmptyFunction($controllerpath, "create", 'return view("'.$table.'.form");');
+			$this->replaceEmptyFunction($controllerpath, "store",  '
+		$input = $request->all();
+		'.$singular.'::create($input);
+		return $input;');
 			if ($this->is_api) {
 				$this->replaceEmptyFunction($controllerpath, "show",   "return compact('".$singular_lower."');");
 			} else {
-				$this->replaceEmptyFunction($controllerpath, "show",   "return view('".$singular_lower."', compact('".$singular_lower."'));");
+				$this->replaceEmptyFunction($controllerpath, "show",   "
+		return view('".$singular_lower."', compact('".$singular_lower."'));");
 			}
 			$this->replaceEmptyFunction($controllerpath, "edit",   "return view('".$table.".".$singular_lower."_edit', compact('".$singular_lower."'));");
 			$this->replaceEmptyFunction($controllerpath, "update", "return view('".$table.".".$singular_lower."_update', compact('".$singular_lower."'));");
@@ -1011,7 +1093,7 @@ use App\\'.$singular.";", $thiscontroller);
 			file_put_contents($this->full_app_path."/resources/views/".strtolower($singular).".blade.php", $mainview);
 			$mainlist = $this->getListViewMain($table);
 			file_put_contents($this->full_app_path."/resources/views/".$table."/list.blade.php", $mainlist);
-			$this->addModelViewCommand($table, $singular, "create");
+			$this->addCreateForm($table, $singular);
 			$this->addModelViewCommand($table, $singular, "store");
 			$this->addModelViewCommand($table, $singular, "edit");
 			$this->addModelViewCommand($table, $singular, "update");
@@ -1121,12 +1203,14 @@ $pagename
 	}
 	public function addModelViewCommand($table, $model, $command) {
 		$linktext = "{{ $".strtolower($model)."->link_text }}";
+		$command_upper = ucwords($command);
 		switch ($command) {
 			case 'create':
+			$command = "[create]";
 				$linktext = "";
 				break;
 		}
-		$command_upper = ucwords($command);
+		
 		$str = "
 @extends('app')
 
@@ -1266,13 +1350,13 @@ $modelstr", $commandfile);
 	function addProvider($val) {
 		$config_app = file_get_contents($this->full_app_path."/config/app.php");
 		$new_config_app = str_replace("'providers' => [", "'providers' => [
-			'$val',", $config_app);
+		'$val',", $config_app);
 		file_put_contents($this->full_app_path."/config/app.php", $new_config_app);
 	}
-	function addFacade($name, $path) {
+	function addAlias($name, $path) {
 		$config_app = file_get_contents($this->full_app_path."/config/app.php");
 		$new_config_app = str_replace("'aliases' => [", "'aliases' => [
-			'$name' => '$path',", $config_app);
+		'$name' 	=> '$path',", $config_app);
 		file_put_contents($this->full_app_path."/config/app.php", $new_config_app);
 	}
 	
