@@ -133,7 +133,7 @@ class Velerator {
 		$this->schema = [];
 		$this->listqueries = [];
 		$this->nestedroutes = [];
-		$this->belongs_to_array = [];
+		$this->form_models_array = [];
 		$this->demopage_array = [];
 		$this->demopage_array["APP"] = ucwords($this->project_name);
 		$this->demopage_array["FILE"] = $this->project_config_file;
@@ -529,7 +529,8 @@ class Velerator {
 						if ($relationship_model != 'User') {
 							$this->nestedroutes[$model][$relationship_model] = 1;	
 						}
-						$this->belongs_to_array[$model]['belongsto'][$relationship_model] = $relationship_field;
+						$linked_field = $relationship_field ? $relationship_field : strtolower($relationship_model)."_id";
+						$this->form_models_array[$model]['belongsto'][$linked_field] = $relationship_model;
 						if (!$function_name) {
 							$function_name = strtolower($relationship_model);
 						}
@@ -561,7 +562,7 @@ class Velerator {
 						if (!$function_name) {
 							$function_name = $this->getTableFromModelName($relationship_model);
 						}
-						$this->belongs_to_array[$model]['belongstomany'][$relationship_model] = $relationship_field;
+						$this->form_models_array[$model]['belongstomany'][$relationship_model] = 1;
 						$function_str .= $this->getRelationshipFunction($function_name, 
 																		$relationship_model, 
 																		$relationship_type,
@@ -623,11 +624,41 @@ class Velerator {
 		}
 	}
 	public function addCreateForm($table, $model) {
-		print_r($this->belongs_to_array);
-		exit();
+		print_r($this->form_models_array);
+		//exit();
+
 		if ($table == 'users') {
 			return;
 		}
+		// First make sure the controllers load the right data
+		if (isset($this->form_models_array[$model]['belongsto'])) {
+			$create_str = "";
+			$return_str = "return view('".$table.".form', compact(";
+			$once = 1;
+			foreach ($this->form_models_array[$model]['belongsto'] as $fieldname => $related_model) {
+				$related_table = $this->getTableFromModelName($related_model);
+				$create_str .= '$'.$related_table."_collection = $related_model::all();
+		$".$related_table." = ['' => ''];
+		foreach ($".$related_table."_collection as $".strtolower($related_model).") {
+			$".$related_table."[$".strtolower($related_model)."->id] = $".strtolower($related_model)."->link_text;
+		}
+		";
+				if ($once) {
+					$return_str .= "'".$related_table."'";
+				} else {
+					$return_str .= ", '".$related_table."'";
+				}
+			}
+			$return_str .= "));";
+			$currentcontroller = file_get_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php");
+			$replacestr = 'return view("'.$table.'.form");';
+			$newstr = $create_str.$return_str;
+			$newcontroller = str_replace($replacestr, $newstr, $currentcontroller);
+			$newcontroller = str_replace('use App\\'.$model.';', 'use App\\'.$model.';
+use App\\'.$related_model.';', $newcontroller);
+			file_put_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php", $newcontroller);
+		}
+		// Now add the view code
 		$singular_lower = strtolower($model);
 		$viewpath = $table.'/form';
 		$formfields = "";
@@ -649,10 +680,20 @@ class Velerator {
 		";
 					break;
 				case 'unsignedInteger':
-					$formfields .= "
-				{!! Form::label('$fieldname', '".str_replace('_id', '', ucwords($fieldname))."') !!}
-				{!! Form::select( '$fieldname') !!}
+					if (isset($this->form_models_array[$model]['belongsto'][$fieldname])) {
+						$related_model = $this->form_models_array[$model]['belongsto'][$fieldname];
+						$related_table = $this->getTableFromModelName($related_model);
+						$formfields .= "
+				{!! Form::label('$fieldname', '$related_model') !!}
+				{!! Form::select('$fieldname', $".$related_table.", null, []) !!}
 		";
+					} else {
+						$formfields .= "
+				{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
+				{!! Form::text('$fieldname') !!}
+		";
+					}
+					
 					break;
 				default:
 					$inputtype = '';
