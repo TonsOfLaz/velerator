@@ -631,22 +631,47 @@ class Velerator {
 			return;
 		}
 		// First make sure the controllers load the right data
-		if (isset($this->form_models_array[$model]['belongsto'])) {
+		if (isset($this->form_models_array[$model]['belongsto']) || isset($this->form_models_array[$model]['belongstomany'])) {
 			$create_str = "";
 			$return_str = "return view('".$table.".form', compact(";
-			$once = 1;
-			foreach ($this->form_models_array[$model]['belongsto'] as $fieldname => $related_model) {
-				$related_table = $this->getTableFromModelName($related_model);
-				$create_str .= '$'.$related_table."_collection = $related_model::all();
+			$usemodel_str = 'use App\\'.$model.';';
+			$once = true;
+			if (isset($this->form_models_array[$model]['belongsto'])) {
+				foreach ($this->form_models_array[$model]['belongsto'] as $fieldname => $related_model) {
+					$usemodel_str .= '
+use App\\'.$related_model.';';
+					$related_table = $this->getTableFromModelName($related_model);
+					$create_str .= '$'.$related_table."_collection = $related_model::all();
 		$".$related_table." = ['' => ''];
 		foreach ($".$related_table."_collection as $".strtolower($related_model).") {
 			$".$related_table."[$".strtolower($related_model)."->id] = $".strtolower($related_model)."->link_text;
 		}
 		";
-				if ($once) {
-					$return_str .= "'".$related_table."'";
-				} else {
-					$return_str .= ", '".$related_table."'";
+					if ($once) {
+						$return_str .= "'".$related_table."'";
+						$once = false;
+					} else {
+						$return_str .= ", '".$related_table."'";
+					}
+				}
+			}
+			if (isset($this->form_models_array[$model]['belongstomany'])) {
+				foreach ($this->form_models_array[$model]['belongstomany'] as $related_model => $dud) {
+					$usemodel_str .= '
+use App\\'.$related_model.';';
+					$related_table = $this->getTableFromModelName($related_model);
+					$create_str .= '$'.$related_table."_collection = $related_model::all();
+		$".$related_table." = ['' => ''];
+		foreach ($".$related_table."_collection as $".strtolower($related_model).") {
+			$".$related_table."[$".strtolower($related_model)."->id] = $".strtolower($related_model)."->link_text;
+		}
+		";
+					if ($once) {
+						$return_str .= "'".$related_table."'";
+						$once = false;
+					} else {
+						$return_str .= ", '".$related_table."'";
+					}
 				}
 			}
 			$return_str .= "));";
@@ -654,18 +679,19 @@ class Velerator {
 			$replacestr = 'return view("'.$table.'.form");';
 			$newstr = $create_str.$return_str;
 			$newcontroller = str_replace($replacestr, $newstr, $currentcontroller);
-			$newcontroller = str_replace('use App\\'.$model.';', 'use App\\'.$model.';
-use App\\'.$related_model.';', $newcontroller);
+			$newcontroller = str_replace('use App\\'.$model.';', $usemodel_str, $newcontroller);
 			file_put_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php", $newcontroller);
 		}
 		// Now add the view code
+		
+		// First the fields in the schema
 		$singular_lower = strtolower($model);
 		$viewpath = $table.'/form';
 		$formfields = "";
 		foreach ($this->schema[$table] as $fieldname => $fieldtype) {
 			$inputtype = "";
 			$formfields .= "<div class='row'>
-		<div class='small-12 columns'>";
+			<div class='small-12 columns'>";
 			switch($fieldtype) {
 				case 'string':
 					$formfields .= "
@@ -698,11 +724,24 @@ use App\\'.$related_model.';', $newcontroller);
 				default:
 					$inputtype = '';
 			}
-			if (!$inputtype) {
-				continue;
-			}
 			$formfields .= "</div>
 	</div>";
+			
+			
+		}
+
+		// Then the many to many, since they are not in the schema
+		if (isset($this->form_models_array[$model]['belongstomany'])) {
+			foreach ($this->form_models_array[$model]['belongstomany'] as $related_model => $dud) {
+				$related_table = $this->getTableFromModelName($related_model);
+				$related_caps = ucwords($related_table);
+				$formfields .= "<div class='row'>
+			<div class='small-12 columns'>
+				{!! Form::label('$related_table', '$related_caps') !!}
+				{!! Form::select('$related_table"."[]"."', $".$related_table.", null, ['multiple' => 'multiple']) !!}
+			</div>
+		</div>";
+			}
 		}
 		$formcode = "
 @extends('app')
