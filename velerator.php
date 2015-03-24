@@ -624,8 +624,9 @@ class Velerator {
 		}
 	}
 	public function addCreateForm($table, $model) {
-		print_r($this->form_models_array);
+		//print_r($this->form_models_array);
 		//exit();
+		$currentcontroller = file_get_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php");
 
 		if ($table == 'users') {
 			return;
@@ -638,8 +639,11 @@ class Velerator {
 			$once = true;
 			if (isset($this->form_models_array[$model]['belongsto'])) {
 				foreach ($this->form_models_array[$model]['belongsto'] as $fieldname => $related_model) {
-					$usemodel_str .= '
-use App\\'.$related_model.';';
+					$addmodel_str = 'use App\\'.$related_model.';';
+					if (strpos($currentcontroller, $addmodel_str) < 1 && strpos($usemodel_str, $addmodel_str) < 1) {
+						$usemodel_str .= "
+$addmodel_str";
+					}
 					$related_table = $this->getTableFromModelName($related_model);
 					$create_str .= '$'.$related_table."_collection = $related_model::all();
 		$".$related_table." = ['' => ''];
@@ -657,8 +661,11 @@ use App\\'.$related_model.';';
 			}
 			if (isset($this->form_models_array[$model]['belongstomany'])) {
 				foreach ($this->form_models_array[$model]['belongstomany'] as $related_model => $dud) {
-					$usemodel_str .= '
-use App\\'.$related_model.';';
+					$addmodel_str = 'use App\\'.$related_model.';';
+					if (strpos($currentcontroller, $addmodel_str) < 1 && strpos($usemodel_str, $addmodel_str) < 1) {
+						$usemodel_str .= "
+$addmodel_str";
+					}
 					$related_table = $this->getTableFromModelName($related_model);
 					$create_str .= '$'.$related_table."_collection = $related_model::all();
 		$".$related_table." = ['' => ''];
@@ -675,7 +682,6 @@ use App\\'.$related_model.';';
 				}
 			}
 			$return_str .= "));";
-			$currentcontroller = file_get_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php");
 			$replacestr = 'return view("'.$table.'.form");';
 			$newstr = $create_str.$return_str;
 			$newcontroller = str_replace($replacestr, $newstr, $currentcontroller);
