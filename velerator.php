@@ -623,7 +623,7 @@ class Velerator {
 			$this->addFieldArrayToCreateSchema($pivot_table_name, $linkfields_arr);
 		}
 	}
-	public function addCreateForm($table, $model) {
+	public function addCreateAndEditForm($table, $model) {
 		//print_r($this->form_models_array);
 		//exit();
 		$currentcontroller = file_get_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php");
@@ -634,7 +634,8 @@ class Velerator {
 		// First make sure the controllers load the right data
 		if (isset($this->form_models_array[$model]['belongsto']) || isset($this->form_models_array[$model]['belongstomany'])) {
 			$create_str = "";
-			$return_str = "return view('".$table.".form', compact(";
+			$edit_str = "";
+			$return_str = "return view('".$table.".create', compact(";
 			$usemodel_str = 'use App\\'.$model.';';
 			$once = true;
 			if (isset($this->form_models_array[$model]['belongsto'])) {
@@ -682,7 +683,7 @@ $addmodel_str";
 				}
 			}
 			$return_str .= "));";
-			$replacestr = 'return view("'.$table.'.form");';
+			$replacestr = 'return view("'.$table.'.create");';
 			$newstr = $create_str.$return_str;
 			$newcontroller = str_replace($replacestr, $newstr, $currentcontroller);
 			$newcontroller = str_replace('use App\\'.$model.';', $usemodel_str, $newcontroller);
@@ -697,33 +698,33 @@ $addmodel_str";
 		foreach ($this->schema[$table] as $fieldname => $fieldtype) {
 			$inputtype = "";
 			$formfields .= "<div class='row'>
-			<div class='small-12 columns'>";
+	<div class='small-12 columns'>";
 			switch($fieldtype) {
 				case 'string':
 					$formfields .= "
-				{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
-				{!! Form::text('$fieldname') !!}
-		";
+		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
+		{!! Form::text('$fieldname') !!}
+";
 					break;
 				case 'boolean':
 					$formfields .= "
-				{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
-				{!! Form::checkbox('$fieldname') !!}
-		";
+		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
+		{!! Form::checkbox('$fieldname') !!}
+";
 					break;
 				case 'unsignedInteger':
 					if (isset($this->form_models_array[$model]['belongsto'][$fieldname])) {
 						$related_model = $this->form_models_array[$model]['belongsto'][$fieldname];
 						$related_table = $this->getTableFromModelName($related_model);
 						$formfields .= "
-				{!! Form::label('$fieldname', '$related_model') !!}
-				{!! Form::select('$fieldname', $".$related_table.", null, []) !!}
-		";
+		{!! Form::label('$fieldname', '$related_model') !!}
+		{!! Form::select('$fieldname', $".$related_table.", null, []) !!}
+";
 					} else {
 						$formfields .= "
-				{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
-				{!! Form::text('$fieldname') !!}
-		";
+		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
+		{!! Form::text('$fieldname') !!}
+";
 					}
 					
 					break;
@@ -731,7 +732,7 @@ $addmodel_str";
 					$inputtype = '';
 			}
 			$formfields .= "</div>
-	</div>";
+</div>";
 			
 			
 		}
@@ -742,38 +743,32 @@ $addmodel_str";
 				$related_table = $this->getTableFromModelName($related_model);
 				$related_caps = ucwords($related_table);
 				$formfields .= "<div class='row'>
-			<div class='small-12 columns'>
-				{!! Form::label('$related_table', '$related_caps') !!}
-				{!! Form::select('$related_table"."[]"."', $".$related_table.", null, ['multiple' => 'multiple']) !!}
-			</div>
-		</div>";
+	<div class='small-12 columns'>
+		{!! Form::label('$related_table', '$related_caps') !!}
+		{!! Form::select('$related_table"."[]"."', $".$related_table.", null, ['multiple' => 'multiple']) !!}
+	</div>
+</div>";
 			}
 		}
-		$formcode = "
-@extends('app')
+		$formfields .= "
+<div class='row'>
+	<div class='small-12 columns'>
+		{!! Form::submit($"."submit_text".", ['class' => 'button expand']) !!}
+	</div>
+</div>";
+		$standard_create_form = file_get_contents($this->velerator_path."/velerator_files/views/create.blade.php");
+		$new_create_form = str_replace("[MODEL]", $model, $standard_create_form);
+		$new_create_form = str_replace("[TABLE]", $table, $new_create_form);
+		file_put_contents($this->full_app_path."/resources/views/$table/create.blade.php", $new_create_form);
 
-@section('title')
-Add a New $model
-@endsection
+		$singular_lower = strtolower($model);
+		$standard_edit_form = file_get_contents($this->velerator_path."/velerator_files/views/edit.blade.php");
+		$new_edit_form = str_replace("[MODEL]", $model, $standard_edit_form);
+		$new_edit_form = str_replace("[TABLE]", $table, $new_edit_form);
+		$new_edit_form = str_replace("[SINGULAR_VARIABLE]", $singular_lower, $new_edit_form);
+		file_put_contents($this->full_app_path."/resources/views/$table/edit.blade.php", $new_edit_form);
 
-@section('content')
-	<div class='row'>
-		<div class='small-12 columns'>
-			<h1>Add a new $model</h1>
-		</div>
-	</div>
-	{!! Form::open(['url' => '$table']) !!}
-	$formfields
-	<div class='row'>
-		<div class='small-12 columns'>
-			{!! Form::submit('Create', ['class' => 'button expand']) !!}
-		</div>
-	</div>
-	{!! Form::close() !!}
-		</div>
-	</div>
-@endsection";
-		file_put_contents($this->full_app_path."/resources/views/$viewpath.blade.php", $formcode);
+		file_put_contents($this->full_app_path."/resources/views/$table/form.blade.php", $formfields);
 		//exit();
 	}
 
@@ -966,7 +961,7 @@ use App\\'.$singular.";", $thiscontroller);
 		}
 		'.$returnformat.'');
 
-			$this->replaceEmptyFunction($controllerpath, "create", 'return view("'.$table.'.form");');
+			$this->replaceEmptyFunction($controllerpath, "create", 'return view("'.$table.'.create");');
 			$this->replaceEmptyFunction($controllerpath, "store",  '
 		$input = $request->all();
 		'.$singular.'::create($input);
@@ -977,7 +972,7 @@ use App\\'.$singular.";", $thiscontroller);
 				$this->replaceEmptyFunction($controllerpath, "show",   "
 		return view('".$singular_lower."', compact('".$singular_lower."'));");
 			}
-			$this->replaceEmptyFunction($controllerpath, "edit",   "return view('".$table.".".$singular_lower."_edit', compact('".$singular_lower."'));");
+			$this->replaceEmptyFunction($controllerpath, "edit",   "return view('".$table.".edit', compact('".$singular_lower."'));");
 			$this->replaceEmptyFunction($controllerpath, "update", "return view('".$table.".".$singular_lower."_update', compact('".$singular_lower."'));");
 			$this->replaceEmptyFunction($controllerpath, "destroy","return view('".$table.".".$singular_lower."_destroy', compact('".$singular_lower."'));");
 		}
@@ -1179,7 +1174,7 @@ use App\\'.$singular.";", $thiscontroller);
 			file_put_contents($this->full_app_path."/resources/views/".strtolower($singular).".blade.php", $mainview);
 			$mainlist = $this->getListViewMain($table);
 			file_put_contents($this->full_app_path."/resources/views/".$table."/list.blade.php", $mainlist);
-			$this->addCreateForm($table, $singular);
+			$this->addCreateAndEditForm($table, $singular);
 			$this->addModelViewCommand($table, $singular, "store");
 			$this->addModelViewCommand($table, $singular, "edit");
 			$this->addModelViewCommand($table, $singular, "update");
