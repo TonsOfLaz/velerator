@@ -7,7 +7,7 @@ Demo Page
 @section('content')
 <div id="intro" class="row">
 	<div class="columns small-12"><h1>[APP] Velerated</h1></div>
-	<div class="columns small-12"><h2>Your app has been generated from the file: [FILE]</h2></div>
+	<div class="columns small-12"><h2>Your app shell has been generated from the file: [FILE]</h2></div>
 	<div id="intro_message" class="columns panel small-12">
 		You are seeing this page as a demonstration of what Velerator has set up based on your config file. If you would like to get the default Laravel Welcome Page back, open the file <span class="filepath">/app/Http/routes.php</span> and replace:
 		<pre class="codeblock">

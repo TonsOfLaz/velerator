@@ -683,9 +683,16 @@ $addmodel_str";
 				}
 			}
 			$return_str .= "));";
+
+			$singular_lower = strtolower($model);
 			$replacestr = 'return view("'.$table.'.create");';
 			$newstr = $create_str.$return_str;
 			$newcontroller = str_replace($replacestr, $newstr, $currentcontroller);
+
+			$replace_edit = "return view('$table.edit', compact('$singular_lower'));";
+			$edit_str = str_replace("create", "edit", $newstr);
+			$edit_str = str_replace("compact(", "compact('$singular_lower', ", $edit_str);
+			$newcontroller = str_replace($replace_edit, $edit_str, $newcontroller);
 			$newcontroller = str_replace('use App\\'.$model.';', $usemodel_str, $newcontroller);
 			file_put_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php", $newcontroller);
 		}
