@@ -567,6 +567,7 @@ class Velerator {
 																		$relationship_model, 
 																		$relationship_type,
 																		$relationship_field);
+						$function_str .= $this->getRelationshipListFunction($function_name, $relationship_model);
 						if (strcmp($relationship_model, $model) < 0) {
 							$pivot_tables[$relationship_model."_".$model] = 1;
 						} else {
@@ -635,6 +636,9 @@ class Velerator {
 		if (isset($this->form_models_array[$model]['belongsto']) || isset($this->form_models_array[$model]['belongstomany'])) {
 			$create_str = "";
 			$edit_str = "";
+			$update_str = "";
+			$store_str = "";
+
 			$return_str = "return view('".$table.".create', compact(";
 			$usemodel_str = 'use App\\'.$model.';';
 			$once = true;
@@ -668,6 +672,11 @@ $addmodel_str";
 $addmodel_str";
 					}
 					$related_table = $this->getTableFromModelName($related_model);
+					$related_list = strtolower($related_model)."_list";
+					$update_str .= '$'.strtolower($model).'->'.$related_table.'()->sync($request->input("'.$related_list.'"));
+		';
+					$store_str .= '$'.strtolower($model).'->'.$related_table.'()->attach($request->input("'.$related_list.'"));
+		';
 					$create_str .= '$'.$related_table."_collection = $related_model::all();
 		$".$related_table." = ['' => ''];
 		foreach ($".$related_table."_collection as $".strtolower($related_model).") {
@@ -693,6 +702,8 @@ $addmodel_str";
 			$edit_str = str_replace("create", "edit", $newstr);
 			$edit_str = str_replace("compact(", "compact('$singular_lower', ", $edit_str);
 			$newcontroller = str_replace($replace_edit, $edit_str, $newcontroller);
+			$newcontroller = str_replace("[MANYTOMANY_UPDATE]", $update_str, $newcontroller);
+			$newcontroller = str_replace("[MANYTOMANY_STORE]", $store_str, $newcontroller);
 			$newcontroller = str_replace('use App\\'.$model.';', $usemodel_str, $newcontroller);
 			file_put_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php", $newcontroller);
 		}
@@ -747,12 +758,13 @@ $addmodel_str";
 		// Then the many to many, since they are not in the schema
 		if (isset($this->form_models_array[$model]['belongstomany'])) {
 			foreach ($this->form_models_array[$model]['belongstomany'] as $related_model => $dud) {
+				$related_list = strtolower($related_model)."_list";
 				$related_table = $this->getTableFromModelName($related_model);
 				$related_caps = ucwords($related_table);
 				$formfields .= "<div class='row'>
 	<div class='small-12 columns'>
-		{!! Form::label('$related_table', '$related_caps') !!}
-		{!! Form::select('$related_table"."[]"."', $".$related_table.", null, ['multiple' => 'multiple']) !!}
+		{!! Form::label('$related_list', '$related_caps') !!}
+		{!! Form::select('$related_list"."[]"."', $".$related_table.", null, ['multiple' => 'multiple']) !!}
 	</div>
 </div>";
 			}
@@ -941,6 +953,7 @@ use App\\'.$singular.";", $thiscontroller);
 			$newcontroller = str_replace('$id', $singular.' $'.$singular_lower, $newcontroller);
 			$newcontroller = str_replace('index()', 'index(Request $request)', $newcontroller);
 			$newcontroller = str_replace('store()', 'store(Request $request)', $newcontroller);
+			$newcontroller = str_replace('update(', 'update(Request $request, ', $newcontroller);
 			file_put_contents($this->full_app_path."/app/Http/Controllers/".$capstable."Controller.php", $newcontroller);
 
 			// Include resource routes
@@ -971,8 +984,9 @@ use App\\'.$singular.";", $thiscontroller);
 			$this->replaceEmptyFunction($controllerpath, "create", 'return view("'.$table.'.create");');
 			$this->replaceEmptyFunction($controllerpath, "store",  '
 		$input = $request->all();
-		'.$singular.'::create($input);
-		return $input;');
+		$'.$singular_lower.' = '.$singular.'::create($input);
+		[MANYTOMANY_STORE]
+		return redirect("'.$table.'");');
 			if ($this->is_api) {
 				$this->replaceEmptyFunction($controllerpath, "show",   "return compact('".$singular_lower."');");
 			} else {
@@ -980,7 +994,9 @@ use App\\'.$singular.";", $thiscontroller);
 		return view('".$singular_lower."', compact('".$singular_lower."'));");
 			}
 			$this->replaceEmptyFunction($controllerpath, "edit",   "return view('".$table.".edit', compact('".$singular_lower."'));");
-			$this->replaceEmptyFunction($controllerpath, "update", "return view('".$table.".".$singular_lower."_update', compact('".$singular_lower."'));");
+			$this->replaceEmptyFunction($controllerpath, "update", '$'.$singular_lower.'->update($request->all());
+		[MANYTOMANY_UPDATE]
+		return redirect("'.$table.'/".$'.$singular_lower.'->id);');
 			$this->replaceEmptyFunction($controllerpath, "destroy","return view('".$table.".".$singular_lower."_destroy', compact('".$singular_lower."'));");
 		}
 		$replace = "Route::get('home', 'HomeController@index');";
@@ -1227,6 +1243,7 @@ use App\\'.$singular.";", $thiscontroller);
 
 	}
 	public function getModelViewMain($model) {
+		$table = $this->getTableFromModelName($model);
 		return "
 @extends('app')
 
@@ -1236,8 +1253,11 @@ $model
 
 @section('content')
 	<div class='row'>
-		<div class='columns small-12 large-8'>
+		<div class='columns small-10'>
 			<h2>{{ $".strtolower($model)."->link_text }}</h2>
+		</div>
+		<div class='columns small-2'>
+			<a class='button' href='/$table/{{ $".strtolower($model)."->id }}/edit'>Edit</a>
 		</div>
 	</div>
 	<div class='row'>
@@ -1410,13 +1430,26 @@ $modelstr", $commandfile);
 	}
 
 	public function getRelationshipFunction($function_name, $model, $type, $field) {
+		$extrafunction = "";
+		if ($type == 'belongsToMany') {
+			$extrafunction = '->withTimestamps()';
+		}
 		if ($field) {
 			$model = $model."', '".$field;
 		}
 		$str = "
 	public function $function_name()
 	{
-		return ".'$this'."->$type('App\\$model');
+		return ".'$this'."->$type('App\\$model')$extrafunction;
+	}
+	";
+		return $str;
+	}
+	public function getRelationshipListFunction($table, $model) {
+		$str = "
+	public function get".$model."ListAttribute()
+	{
+		return ".'$this'."->$table"."->lists('id');
 	}
 	";
 		return $str;

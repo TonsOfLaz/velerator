@@ -10,7 +10,7 @@ Edit [MODEL] {{ $[SINGULAR_VARIABLE]->link_text }}
 			<h1>Edit [MODEL] {{ $[SINGULAR_VARIABLE]->link_text }}</h1>
 		</div>
 	</div>
-	{!! Form::model($[SINGULAR_VARIABLE], ['url' => '[TABLE]']) !!}
+	{!! Form::model($[SINGULAR_VARIABLE], ['method' => 'PATCH', 'url' => "[TABLE]/$[SINGULAR_VARIABLE]->id"]) !!}
 	@include('[TABLE].form', ['submit_text' => 'Update [MODEL]'])
 	{!! Form::close() !!}
 		</div>
