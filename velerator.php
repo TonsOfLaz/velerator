@@ -775,6 +775,12 @@ $addmodel_str";
 		{!! Form::submit($"."submit_text".", ['class' => 'button expand']) !!}
 	</div>
 </div>";
+		$formfields .= "
+@section('footer')
+	<script>
+		$('select[multiple]').select2();
+	</script>
+@endsection";
 		$standard_create_form = file_get_contents($this->velerator_path."/velerator_files/views/create.blade.php");
 		$new_create_form = str_replace("[MODEL]", $model, $standard_create_form);
 		$new_create_form = str_replace("[TABLE]", $table, $new_create_form);

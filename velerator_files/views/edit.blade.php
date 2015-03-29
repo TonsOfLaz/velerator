@@ -6,8 +6,11 @@ Edit [MODEL] {{ $[SINGULAR_VARIABLE]->link_text }}
 
 @section('content')
 	<div class='row'>
-		<div class='small-12 columns'>
+		<div class='small-10 columns'>
 			<h1>Edit [MODEL] {{ $[SINGULAR_VARIABLE]->link_text }}</h1>
+		</div>
+		<div class='small-2 columns'>
+			<a class='button' href='/[TABLE]/{{ $[SINGULAR_VARIABLE]->id }}'>View</a>
 		</div>
 	</div>
 	{!! Form::model($[SINGULAR_VARIABLE], ['method' => 'PATCH', 'url' => "[TABLE]/$[SINGULAR_VARIABLE]->id"]) !!}
