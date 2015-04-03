@@ -89,6 +89,8 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added Custom ROUTES.");
 		$this->velerateNestedRoutes();
 		$this->gitAddAndCommitWithMessage("Added Nested Routes.");
+		$this->velerateListParameterFilters();
+		$this->gitAddAndCommitWithMessage("Added list parameter filters.");
 		shell_exec("php artisan migrate");
 		$this->createAndRunSeedFiles();
 		$this->gitAddAndCommitWithMessage("Added seeder files.");
@@ -128,9 +130,15 @@ class Velerator {
 		$this->project_config_file = $argv[2];
 		$this->singular_models = [];
 		$this->singular_models['users'] = "User";
+		$users_default_schema = [];
+		$users_default_schema = ['name' 		=> 'string',
+								'email' 		=> 'string',
+								'password'		=> 'string',
+								'remember_token' => 'string'];
+		$this->schema['users'] = $users_default_schema;
 		$this->velerator_path = getcwd();
 		$this->full_app_path = $this->velerator_path."/".$this->project_name;
-		$this->schema = [];
+		
 		$this->listqueries = [];
 		$this->nestedroutes = [];
 		$this->form_models_array = [];
@@ -526,9 +534,7 @@ class Velerator {
 																		$relationship_field);
 						break;
 					case 'belongsTo':
-						if ($relationship_model != 'User') {
-							$this->nestedroutes[$model][$relationship_model] = 1;	
-						}
+						$this->nestedroutes[$model][$relationship_model] = 1;	
 						$linked_field = $relationship_field ? $relationship_field : strtolower($relationship_model)."_id";
 						$this->form_models_array[$model]['belongsto'][$linked_field] = $relationship_model;
 						if (!$function_name) {
@@ -627,17 +633,14 @@ class Velerator {
 	public function addCreateAndEditForm($table, $model) {
 		//print_r($this->form_models_array);
 		//exit();
-		$currentcontroller = file_get_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php");
+		$newcontroller = file_get_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php");
 
-		if ($table == 'users') {
-			return;
-		}
 		// First make sure the controllers load the right data
+		$create_str = "";
+		$edit_str = "";
+		$update_str = "";
+		$store_str = "";
 		if (isset($this->form_models_array[$model]['belongsto']) || isset($this->form_models_array[$model]['belongstomany'])) {
-			$create_str = "";
-			$edit_str = "";
-			$update_str = "";
-			$store_str = "";
 
 			$return_str = "return view('".$table.".create', compact(";
 			$usemodel_str = 'use App\\'.$model.';';
@@ -645,7 +648,7 @@ class Velerator {
 			if (isset($this->form_models_array[$model]['belongsto'])) {
 				foreach ($this->form_models_array[$model]['belongsto'] as $fieldname => $related_model) {
 					$addmodel_str = 'use App\\'.$related_model.';';
-					if (strpos($currentcontroller, $addmodel_str) < 1 && strpos($usemodel_str, $addmodel_str) < 1) {
+					if (strpos($newcontroller, $addmodel_str) < 1 && strpos($usemodel_str, $addmodel_str) < 1) {
 						$usemodel_str .= "
 $addmodel_str";
 					}
@@ -667,7 +670,7 @@ $addmodel_str";
 			if (isset($this->form_models_array[$model]['belongstomany'])) {
 				foreach ($this->form_models_array[$model]['belongstomany'] as $related_model => $dud) {
 					$addmodel_str = 'use App\\'.$related_model.';';
-					if (strpos($currentcontroller, $addmodel_str) < 1 && strpos($usemodel_str, $addmodel_str) < 1) {
+					if (strpos($newcontroller, $addmodel_str) < 1 && strpos($usemodel_str, $addmodel_str) < 1) {
 						$usemodel_str .= "
 $addmodel_str";
 					}
@@ -678,7 +681,7 @@ $addmodel_str";
 					$store_str .= '$'.strtolower($model).'->'.$related_table.'()->attach($request->input("'.$related_list.'"));
 		';
 					$create_str .= '$'.$related_table."_collection = $related_model::all();
-		$".$related_table." = ['' => ''];
+		$".$related_table." = [];
 		foreach ($".$related_table."_collection as $".strtolower($related_model).") {
 			$".$related_table."[$".strtolower($related_model)."->id] = $".strtolower($related_model)."->link_text;
 		}
@@ -696,23 +699,26 @@ $addmodel_str";
 			$singular_lower = strtolower($model);
 			$replacestr = 'return view("'.$table.'.create");';
 			$newstr = $create_str.$return_str;
-			$newcontroller = str_replace($replacestr, $newstr, $currentcontroller);
+			$newcontroller = str_replace($replacestr, $newstr, $newcontroller);
 
 			$replace_edit = "return view('$table.edit', compact('$singular_lower'));";
 			$edit_str = str_replace("create", "edit", $newstr);
 			$edit_str = str_replace("compact(", "compact('$singular_lower', ", $edit_str);
 			$newcontroller = str_replace($replace_edit, $edit_str, $newcontroller);
-			$newcontroller = str_replace("[MANYTOMANY_UPDATE]", $update_str, $newcontroller);
-			$newcontroller = str_replace("[MANYTOMANY_STORE]", $store_str, $newcontroller);
 			$newcontroller = str_replace('use App\\'.$model.';', $usemodel_str, $newcontroller);
-			file_put_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php", $newcontroller);
 		}
+		$newcontroller = str_replace("[MANYTOMANY_UPDATE]", $update_str, $newcontroller);
+		$newcontroller = str_replace("[MANYTOMANY_STORE]", $store_str, $newcontroller);
+		
+		file_put_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php", $newcontroller);
+	
 		// Now add the view code
 		
 		// First the fields in the schema
 		$singular_lower = strtolower($model);
 		$viewpath = $table.'/form';
 		$formfields = "";
+		//print_r($this->schema);
 		foreach ($this->schema[$table] as $fieldname => $fieldtype) {
 			$inputtype = "";
 			$formfields .= "<div class='row'>
@@ -904,11 +910,11 @@ Route::get('".$routebase_arr[0]."', '".$controller."@".$routebase_arr[0]."');";
 
 				$tablename = $this->getTableFromModelName($model);
 				$this->demopage_array["MODELS"][$tablename]['listqueries'][] = $function_name;
-				$this->demopage_array['ROUTES']['GET'][$model][$tablename."?type=".$function_name] = "List Query: $function_name ".ucwords($tablename);
+				$this->demopage_array['ROUTES']['GET'][$model][$tablename."?scope=".$function_name] = "List Query: $function_name ".ucwords($tablename);
 				$controllerpath = $this->full_app_path."/app/Http/Controllers/".ucwords($tablename)."Controller.php";
 				$controllerfile = file_get_contents($controllerpath);
 				// replaces the plain controller code, from LISTQUERIES
-				$replace_func = 'switch ($type) {';
+				$replace_func = 'switch ($scope) {';
 				$new_func = "
 			case '$function_name':
 				$".$tablename." = $model::$function_name()->get();
@@ -980,11 +986,12 @@ use App\\'.$singular.";", $thiscontroller);
 				$returnformat = 'return view("'.$table.'.list", compact("'.$table.'"));';
 			}
 			$controllerpath = "./app/Http/Controllers/".$capstable."Controller.php";
-			$this->replaceEmptyFunction($controllerpath, "index",  '$type = $request->input("type");
-		switch ($type) {
+			$this->replaceEmptyFunction($controllerpath, "index",  '$scope = $request->input("scope");
+		switch ($scope) {
 			default:
 				$'.$table.' = '.$singular.'::all();
 		}
+		[QUERYPARAMETERS]
 		'.$returnformat.'');
 
 			$this->replaceEmptyFunction($controllerpath, "create", 'return view("'.$table.'.create");');
@@ -1023,22 +1030,31 @@ use App\\'.$singular.";", $thiscontroller);
 				if (isset($this->nestedroutes[$related_model])) {
 					foreach ($this->nestedroutes[$related_model] as $parent_model => $seconddud) {
 						$parent_table = $this->getTableFromModelName($parent_model);
-						$routes[] = "$parent_table.$related_table.$table";
+						$oneroute = [];
+						$oneroute['path'] = "$parent_table.$related_table.$table";
+						$oneroute['nesting_description'] = "associated with both a specific $related_model and its specific $parent_model.";
+						$routes[] = $oneroute;
 					}
 				}
-				$routes[] = $related_table.".".$table;
-				foreach ($routes as $routepath) {
+				$oneroute = [];
+				$oneroute['path'] = $related_table.".".$table;
+				$oneroute['nesting_description'] = "associated with a specific $related_model";
+				$routes[] = $oneroute;
+				foreach ($routes as $oneroute) {
+					$routepath = $oneroute['path'];
+					$nesting_description = $oneroute['nesting_description'];
 					$replacestr = "Route::resource('$table', '$capstable"."Controller');\n";
 					$nestedstr = "Route::resource('$routepath', '$capstable"."Controller');\n";
 					$routesfile = str_replace($replacestr, $replacestr.$nestedstr, $routesfile);
 
 					$uripath = str_replace(".", "/{id}/", $routepath);
-					$this->demopage_array['ROUTES']['GET REDUNDANT'][$model][$uripath."/create"] = "Create a new $model";
-					$this->demopage_array['ROUTES']['GET REDUNDANT'][$model][$uripath."/{id}"] = "View one $model";
-					$this->demopage_array['ROUTES']['GET REDUNDANT'][$model][$uripath."/{id}/edit"] = "Edit an existing $model";
-					$this->demopage_array['ROUTES']['POST REDUNDANT'][$model][$uripath."/{id}/store"] = "Save a new $model";
-					$this->demopage_array['ROUTES']['POST REDUNDANT'][$model][$uripath."/{id}/update"] = "Update an existing $model";
-					$this->demopage_array['ROUTES']['POST REDUNDANT'][$model][$uripath."/{id}/destroy"] = "Delete an existing $model";
+					$this->demopage_array['ROUTES']['GET'][$model][$uripath."/"] = "View all $capstable $nesting_description";
+					$this->demopage_array['ROUTES']['GET'][$model][$uripath."/create"] = "Create a new $model $nesting_description";
+					$this->demopage_array['ROUTES']['GET'][$model][$uripath."/{id}"] = "View a $model $nesting_description";
+					$this->demopage_array['ROUTES']['GET'][$model][$uripath."/{id}/edit"] = "Edit an existing $model $nesting_description";
+					$this->demopage_array['ROUTES']['POST'][$model][$uripath."/{id}/store"] = "Save a new $model $nesting_description";
+					$this->demopage_array['ROUTES']['POST'][$model][$uripath."/{id}/update"] = "Update an existing $model $nesting_description";
+					$this->demopage_array['ROUTES']['POST'][$model][$uripath."/{id}/destroy"] = "Delete an existing $model $nesting_description";
 				}
 				
 			}
@@ -1165,7 +1181,7 @@ use App\\'.$singular.";", $thiscontroller);
 				if ($this->is_api) {
 					$show_compact .= ");";
 				} else {
-					$this->demopage_array['ROUTES']['GET'][$model][$table."/{id}#$related_function"] = "View the $related_function associated with the $model, in a tab.";
+					//$this->demopage_array['ROUTES']['GET'][$model][$table."/{id}/$related_function"] = "View the $related_function associated with the $model.";
 					$show_compact .= "));";
 				}
 				
@@ -1377,18 +1393,40 @@ $modelstr", $commandfile);
 
 	public function velerateMODELQUERIES() {
 
-		foreach ($this->project_config_array['MODELQUERIES'] as $model => $function_arr) {
-			$this->addModelFunctions($model, $function_arr, 'instance');
+		if (isset($this->project_config_array['MODELQUERIES'])) {
+			foreach ($this->project_config_array['MODELQUERIES'] as $model => $function_arr) {
+				$this->addModelFunctions($model, $function_arr, 'instance');
+			}
 		}
 
 	}
 	public function velerateLISTQUERIES() {
 
-		foreach ($this->project_config_array['LISTQUERIES'] as $model => $function_arr) {
-			// Make this a query route
-			$this->addModelFunctions($model, $function_arr, 'list');
+		if (isset($this->project_config_array['LISTQUERIES'])) {
+			foreach ($this->project_config_array['LISTQUERIES'] as $model => $function_arr) {
+				// Make this a query route
+				$this->addModelFunctions($model, $function_arr, 'list');
+			}
 		}
 
+	}
+	public function velerateListParameterFilters() {
+		// Adds a parameter query for any list
+		// based on the fields defined in DBMODELS
+		foreach ($this->singular_models as $table => $model) {
+			$uppercasetable = ucwords($table);
+			$controllerpath = $this->full_app_path."/app/Http/Controllers/".$uppercasetable."Controller.php";
+			$newcontroller = file_get_contents($controllerpath);
+			$newcontroller = str_replace('[QUERYPARAMETERS]', '// Handles query parameters, i.e. ?field=val$field2=val2
+		$static_'.strtolower($model).' = new '.$model.'();
+		foreach ($request->input() as $field => $val) {
+			if ($static_'.strtolower($model).'->isFillable($field)) {
+				$'.$table.' = $'.$table.'->where($field, $val);
+			}
+		}
+		', $newcontroller);
+			file_put_contents($controllerpath, $newcontroller);
+		}
 	}
 	public function addModelFunctions($model, $function_arr, $query_type) {
 		$modelfile = file_get_contents($this->full_app_path."/app/$model.php");
