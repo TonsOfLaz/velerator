@@ -917,7 +917,7 @@ Route::get('".$routebase_arr[0]."', '".$controller."@".$routebase_arr[0]."');";
 				$replace_func = 'switch ($scope) {';
 				$new_func = "
 			case '$function_name':
-				$".$tablename." = $model::$function_name()->get();
+				$"."scope_function = '$function_name';
 				break;";
 				$newcontrollerfile = str_replace($replace_func, $replace_func.$new_func, $controllerfile);
 				file_put_contents($controllerpath, $newcontrollerfile);
@@ -989,8 +989,15 @@ use App\\'.$singular.";", $thiscontroller);
 			$this->replaceEmptyFunction($controllerpath, "index",  '$scope = $request->input("scope");
 		switch ($scope) {
 			default:
-				$'.$table.' = '.$singular.'::all();
+				$scope_function = "";
+				break;
 		}
+		if ($scope_function) {
+			$'.$table.' = '.$singular.'::$scope_function()->get();
+		} else {
+			$'.$table.' = '.$singular.'::all();
+		}
+
 		[QUERYPARAMETERS]
 		'.$returnformat.'');
 
