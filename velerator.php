@@ -259,7 +259,7 @@ class Velerator {
 				foreach ($inserts as $row) {
 					$realseed_str .= "
 		$model::create([";
-					$data_arr = array_map('trim', explode(',', $row));
+					$data_arr = array_map('trim', explode('|', $row));
 					foreach ($fields_arr as $fieldkey => $fieldname) {
 						$fielddata = $data_arr[$fieldkey];
 						$realseed_str .= "
