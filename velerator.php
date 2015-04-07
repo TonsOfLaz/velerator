@@ -92,8 +92,10 @@ class Velerator {
 		$this->velerateListParameterFilters();
 		$this->gitAddAndCommitWithMessage("Added list parameter filters.");
 		shell_exec("php artisan migrate");
-		$this->createAndRunSeedFiles();
-		$this->gitAddAndCommitWithMessage("Added seeder files.");
+		$this->runRealDataSeeders();
+		$this->gitAddAndCommitWithMessage("Added real data seeder files.");
+		$this->runFakeDataSeeders();
+		$this->gitAddAndCommitWithMessage("Added fake data seeder files.");
 		$this->createDemoPage();
 		$this->gitAddAndCommitWithMessage("Added Demo page.");
 
@@ -242,11 +244,57 @@ class Velerator {
 		// add to controller file
 		// create view if it doesnt exist
 	}
-	public function createAndRunSeedFiles() {
-		echo "Creating table seeders...\n";
+	public function runRealDataSeeders() {
 		$table_seeder_calls = "";
-		if (isset($this->project_config_array['FAKEDATA'])) {
-			foreach ($this->project_config_array['FAKEDATA'] as $object_and_count => $fields) {
+		$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
+		if (isset($this->project_config_array['SEEDREAL'])) {
+			foreach ($this->project_config_array['SEEDREAL'] as $table_and_fields => $inserts) {
+				$table_arr = explode('|', $table_and_fields);
+				$table = trim($table_arr[0]);
+				$model = $this->singular_models[$table];
+				$fields_str = trim($table_arr[1]);
+				$fields_arr = array_map('trim', explode(',', $fields_str));
+				$realseed_str = "";
+		
+				foreach ($inserts as $row) {
+					$realseed_str .= "
+		$model::create([";
+					$data_arr = array_map('trim', explode(',', $row));
+					foreach ($fields_arr as $fieldkey => $fieldname) {
+						$fielddata = $data_arr[$fieldkey];
+						$realseed_str .= "
+			'$fieldname' => '$fielddata',";
+					}
+					$realseed_str .= "
+		]);";
+				}
+				
+				$newseeder = str_replace('[NAME]', $model, $baseseeder);
+				$newseeder = str_replace('[REAL]', $realseed_str, $newseeder);
+				file_put_contents($this->full_app_path."/database/seeds/".$model."TableSeeder.php", $newseeder);
+				$table_seeder_calls .= '$this'."->call('".$model."TableSeeder');
+		";
+			}
+		}
+		$database_seeder_master = file_get_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php");
+		$new_dbseed_master = str_replace('// $this'."->call('UserTableSeeder');", $table_seeder_calls, $database_seeder_master);
+		file_put_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php", $new_dbseed_master);
+	}
+	public function runFakeDataSeeders() {
+		echo "Creating fake data seeders...\n";
+		$table_seeder_calls = "";
+		if (isset($this->project_config_array['SEEDFAKE'])) {
+
+			$fakebase_str = '$faker = Faker\Factory::create();
+
+        foreach(range(1,[COUNT]) as $index)  
+        {  
+            [NAME]::create([  
+                [FAKE_ARRAY]
+            ]);  
+        }';
+
+			foreach ($this->project_config_array['SEEDFAKE'] as $object_and_count => $fields) {
 				$obj_cnt_arr = explode(" ", $object_and_count);
 				$object = $obj_cnt_arr[0];
 				//echo $object."\n";
@@ -276,8 +324,11 @@ class Velerator {
 					$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
 					$newseeder = str_replace('[NAME]', $singular, $baseseeder);
 				}
-				$newseeder = str_replace('[COUNT]', $count, $newseeder);
-				$newseeder = str_replace('[ARRAY]', $fakerstr, $newseeder);
+				$newfakebase = str_replace('[NAME]', $singular, $fakebase_str);
+				$newfakebase = str_replace('[COUNT]', $count, $newfakebase);
+				$newfakebase = str_replace('[FAKE_ARRAY]', $fakerstr, $newfakebase);
+				
+				$newseeder = str_replace('// [FAKE]', $newfakebase, $newseeder);
 
 				file_put_contents($this->full_app_path."/database/seeds/".$singular."TableSeeder.php", $newseeder);
 				$table_seeder_calls .= '$this'."->call('".$singular."TableSeeder');
@@ -730,6 +781,12 @@ $addmodel_str";
 		{!! Form::text('$fieldname') !!}
 ";
 					break;
+				case 'text':
+					$formfields .= "
+		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
+		{!! Form::textarea('$fieldname') !!}
+";
+					break;
 				case 'boolean':
 					$formfields .= "
 		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
@@ -807,79 +864,81 @@ $addmodel_str";
 		$controller_arr = [];
 		$routestr = "";
 		$routefile = file_get_contents($this->full_app_path.'/app/Http/routes.php');
-		foreach ($this->project_config_array['ROUTES'] as $routebase => $routes) {
-			$routebase_arr = explode(" ", trim($routebase));
-			if (count($routebase_arr) > 1) {
-				$controller = $routebase_arr[1];
-			} else {
-				$controller = ucwords($routebase)."Controller";
-			}
+		if (isset($this->project_config_array['ROUTES'])) {
+			foreach ($this->project_config_array['ROUTES'] as $routebase => $routes) {
+				$routebase_arr = explode(" ", trim($routebase));
+				if (count($routebase_arr) > 1) {
+					$controller = $routebase_arr[1];
+				} else {
+					$controller = ucwords($routebase)."Controller";
+				}
 
-			if (isset($this->singular_models[$routebase])) {
-				
-				$singular = $this->singular_models[$routebase];
-				$singular_lower = strtolower($singular);
-				foreach ($routes as $route) {
-					$dependency_injection = "";
-					$route_arr = explode(" ", trim($route));
-					if (count($route_arr) > 1) {
-						$str = $route_arr[1];
-						$finalroute = "$routebase/".$route_arr[0];
-						$this->demopage_array['ROUTES']['GET'][$singular][$finalroute] = "Custom route defined in ".$this->project_config_file." ROUTES, view and controller function are named ".$route_arr[1];
-					} else {
-						if (strpos("a".$route, "?") > 0) {
-							$dependency_injection = "$singular ".'$'."$singular_lower";
-						}
-						$str = str_replace("?", "", $route);
-						$str = str_replace("/", " ", $str);
-						$str = ucwords($str);
-				        $str = str_replace(" ", "", $str);
-				        $str = lcfirst($str);
-				        $idroute = str_replace("?", '{id}', $route);
-				        $route = str_replace("?", '{'.$singular_lower.'}', $route);
-				        $this->demopage_array['ROUTES']['GET'][$singular]["$routebase/$idroute"] = "Custom route defined in ".$this->project_config_file." ROUTES";
-						$finalroute = "$routebase/$route";
-					}
+				if (isset($this->singular_models[$routebase])) {
 					
-					$routestr .= "
+					$singular = $this->singular_models[$routebase];
+					$singular_lower = strtolower($singular);
+					foreach ($routes as $route) {
+						$dependency_injection = "";
+						$route_arr = explode(" ", trim($route));
+						if (count($route_arr) > 1) {
+							$str = $route_arr[1];
+							$finalroute = "$routebase/".$route_arr[0];
+							$this->demopage_array['ROUTES']['GET'][$singular][$finalroute] = "Custom route defined in ".$this->project_config_file." ROUTES, view and controller function are named ".$route_arr[1];
+						} else {
+							if (strpos("a".$route, "?") > 0) {
+								$dependency_injection = "$singular ".'$'."$singular_lower";
+							}
+							$str = str_replace("?", "", $route);
+							$str = str_replace("/", " ", $str);
+							$str = ucwords($str);
+					        $str = str_replace(" ", "", $str);
+					        $str = lcfirst($str);
+					        $idroute = str_replace("?", '{id}', $route);
+					        $route = str_replace("?", '{'.$singular_lower.'}', $route);
+					        $this->demopage_array['ROUTES']['GET'][$singular]["$routebase/$idroute"] = "Custom route defined in ".$this->project_config_file." ROUTES";
+							$finalroute = "$routebase/$route";
+						}
+						
+						$routestr .= "
 Route::get('$finalroute', '".$controller."@".$str."');";
-					$temparr = [];
-					$temparr['function'] = $str."($dependency_injection)";
-					$compact = "";
-					if ($dependency_injection) {
-						$compact = "compact('$singular_lower')";
-					} 
-					if ($this->is_api) {
-						if (!$compact) {
-							if (isset($this->listqueries[$singular][$str])) {
-								$temparr['body'] = "return $singular::$str()->get();";
+						$temparr = [];
+						$temparr['function'] = $str."($dependency_injection)";
+						$compact = "";
+						if ($dependency_injection) {
+							$compact = "compact('$singular_lower')";
+						} 
+						if ($this->is_api) {
+							if (!$compact) {
+								if (isset($this->listqueries[$singular][$str])) {
+									$temparr['body'] = "return $singular::$str()->get();";
+								} else {
+									$temparr['body'] = "return '$str';";	
+								}
+								
 							} else {
-								$temparr['body'] = "return '$str';";	
+								$temparr['body'] = "return $compact;";
 							}
 							
 						} else {
-							$temparr['body'] = "return $compact;";
+							if ($dependency_injection) {
+								$compact = ", ".$compact;
+							}
+							$temparr['body'] = "return view('$routebase.$str'$compact);";
 						}
-						
-					} else {
-						if ($dependency_injection) {
-							$compact = ", ".$compact;
-						}
-						$temparr['body'] = "return view('$routebase.$str'$compact);";
+						$controller_arr[$controller][] = $temparr;
+					
 					}
+					
+				} else {
+					$routestr .= "
+Route::get('".$routebase_arr[0]."', '".$controller."@".$routebase_arr[0]."');";
+					$temparr = [];
+					$temparr['function'] = $routebase_arr[0]."()";
+					$temparr['body'] = "return '".$routebase_arr[0]."';";
 					$controller_arr[$controller][] = $temparr;
-				
 				}
 				
-			} else {
-				$routestr .= "
-Route::get('".$routebase_arr[0]."', '".$controller."@".$routebase_arr[0]."');";
-				$temparr = [];
-				$temparr['function'] = $routebase_arr[0]."()";
-				$temparr['body'] = "return '".$routebase_arr[0]."';";
-				$controller_arr[$controller][] = $temparr;
 			}
-			
 		}
 		$replacestr = "Route::get('home', 'HomeController@index');";
 		$newfile = str_replace($replacestr, $replacestr.$routestr, $routefile);
@@ -1118,15 +1177,17 @@ use App\\'.$singular.";", $thiscontroller);
 				}
 			}
 		}
-		foreach ($this->project_config_array['MODELQUERIES'] as $model => $functions) {
-			foreach ($functions as $func_str) {
-				$func_arr = explode("|", $func_str);
-				$func_name = trim($func_arr[0]);
-				$func_type = trim($func_arr[1]);
-				if ($func_type == 'filter' || $func_type == 'table') {
-					$func_table = trim($func_arr[2]);
-					$modeldetails[$model][$func_name]['tab_model'] = $this->singular_models[$func_table];
-					$modeldetails[$model][$func_name]['tab_type'] = "function";
+		if (isset($this->project_config_array['MODELQUERIES'])) {
+			foreach ($this->project_config_array['MODELQUERIES'] as $model => $functions) {
+				foreach ($functions as $func_str) {
+					$func_arr = explode("|", $func_str);
+					$func_name = trim($func_arr[0]);
+					$func_type = trim($func_arr[1]);
+					if ($func_type == 'filter' || $func_type == 'table') {
+						$func_table = trim($func_arr[2]);
+						$modeldetails[$model][$func_name]['tab_model'] = $this->singular_models[$func_table];
+						$modeldetails[$model][$func_name]['tab_type'] = "function";
+					}
 				}
 			}
 		}
@@ -1233,40 +1294,42 @@ use App\\'.$singular.";", $thiscontroller);
 			$this->addModelViewCommand($table, $singular, "destroy");
 		}
 
-		foreach ($this->project_config_array['ROUTES'] as $root => $views) {
-			$viewcontent = "@extends('app')
+		if (isset($this->project_config_array['ROUTES'])) {
+			foreach ($this->project_config_array['ROUTES'] as $root => $views) {
+				$viewcontent = "@extends('app')
 @section('title')
 [TITLE]
 @endsection
 @section('content')
 [CONTENT]
 @endsection";
-			if (count($views) > 0) {
-			
-				foreach ($views as $view) {
-					$newviewcontent = $viewcontent;
-					$view_arr = explode(" ", trim($view));
-					if (count($view_arr) > 1) {
-						$view = $view_arr[1];
+				if (count($views) > 0) {
+				
+					foreach ($views as $view) {
+						$newviewcontent = $viewcontent;
+						$view_arr = explode(" ", trim($view));
+						if (count($view_arr) > 1) {
+							$view = $view_arr[1];
+						}
+						$str = str_replace("?", "", $view);
+						$str = str_replace("/", " ", $str);
+						$str = ucwords($str);
+				        $str = str_replace(" ", "", $str);
+				        $str = lcfirst($str);
+						$newviewcontent = str_replace("[TITLE]", $root." ".$str, $newviewcontent);
+						$newviewcontent = str_replace("[CONTENT]", $root." ".$str, $newviewcontent);
+						
+						file_put_contents($this->full_app_path."/resources/views/$root/$str.blade.php", $newviewcontent);
 					}
-					$str = str_replace("?", "", $view);
-					$str = str_replace("/", " ", $str);
-					$str = ucwords($str);
-			        $str = str_replace(" ", "", $str);
-			        $str = lcfirst($str);
-					$newviewcontent = str_replace("[TITLE]", $root." ".$str, $newviewcontent);
-					$newviewcontent = str_replace("[CONTENT]", $root." ".$str, $newviewcontent);
-					
-					file_put_contents($this->full_app_path."/resources/views/$root/$str.blade.php", $newviewcontent);
+				} else {
+					$newviewcontent = str_replace("[TITLE]", ucwords($root), $viewcontent);
+					$newviewcontent = str_replace("[CONTENT]", ucwords($root), $newviewcontent);
+					$root_arr = explode(" ", trim($root));
+					if (count($root_arr) > 1) {
+						$root = $root_arr[0];
+					}
+					file_put_contents($this->full_app_path."/resources/views/$root.blade.php", $newviewcontent);
 				}
-			} else {
-				$newviewcontent = str_replace("[TITLE]", ucwords($root), $viewcontent);
-				$newviewcontent = str_replace("[CONTENT]", ucwords($root), $newviewcontent);
-				$root_arr = explode(" ", trim($root));
-				if (count($root_arr) > 1) {
-					$root = $root_arr[0];
-				}
-				file_put_contents($this->full_app_path."/resources/views/$root.blade.php", $newviewcontent);
 			}
 		}
 
@@ -1376,24 +1439,26 @@ $command_upper $linktext
 	}
 	public function velerateCOMMANDS() {
 
-		foreach ($this->project_config_array['COMMANDS'] as $command_and_flags => $models) {
-			$command_arr = explode(" ", trim($command_and_flags));
-			$command_name = $command_arr[0];
-			$command_flag = $command_arr[1];
-			shell_exec("php artisan make:command $command_name --$command_flag");
-			$commandfile = file_get_contents($this->full_app_path."/app/Commands/$command_name.php");
-			$modelstr = "";
-			$models_arr = explode(" ", trim($models[0]));
-			foreach ($models_arr as $key => $model) {
-				if (isset(array_flip($this->singular_models)[$model])) {
-					$model = "App\\".$model;
-				}
-				$modelstr .= "use $model;
+		if (isset($this->project_config_array['COMMANDS'])) {
+			foreach ($this->project_config_array['COMMANDS'] as $command_and_flags => $models) {
+				$command_arr = explode(" ", trim($command_and_flags));
+				$command_name = $command_arr[0];
+				$command_flag = $command_arr[1];
+				shell_exec("php artisan make:command $command_name --$command_flag");
+				$commandfile = file_get_contents($this->full_app_path."/app/Commands/$command_name.php");
+				$modelstr = "";
+				$models_arr = explode(" ", trim($models[0]));
+				foreach ($models_arr as $key => $model) {
+					if (isset(array_flip($this->singular_models)[$model])) {
+						$model = "App\\".$model;
+					}
+					$modelstr .= "use $model;
 ";
-			}
-			$newfile = str_replace("use App\Commands\Command;", "use App\Commands\Command;
+				}
+				$newfile = str_replace("use App\Commands\Command;", "use App\Commands\Command;
 $modelstr", $commandfile);
-			file_put_contents($this->full_app_path."/app/Commands/$command_name.php", $newfile);
+				file_put_contents($this->full_app_path."/app/Commands/$command_name.php", $newfile);
+			}
 		}
 
 	}
