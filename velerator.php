@@ -1357,11 +1357,11 @@ $model
 			[LINKS]
 		</div>
 		<div class='columns small-12 large-8 large-pull-4'>
-			<ul>
+			<table>
 				@foreach ($".strtolower($model)."->getAttributes() as ".'$attribute'." => ".'$value'.")
-					<li>{{ ".'$attribute'." }}: {{ ".'$value'." }}</li>
+					<tr><td>{{ ".'$attribute'." }}</td><td>{{ ".'$value'." }}</td></tr>
 				@endforeach
-			</ul>
+			</table>
 		</div>
 	</div>
 	[TABS]
