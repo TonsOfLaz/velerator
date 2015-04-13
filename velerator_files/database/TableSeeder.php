@@ -10,10 +10,9 @@ class [NAME]TableSeeder extends Seeder
     public function run()  
     {  
         
-
         [NAME]::truncate();
 
-        [REAL]
+        // [REAL]
 
         // [FAKE]
     }

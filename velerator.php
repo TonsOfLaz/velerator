@@ -96,6 +96,8 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added real data seeder files.");
 		$this->runFakeDataSeeders();
 		$this->gitAddAndCommitWithMessage("Added fake data seeder files.");
+		$this->createMasterSeederAndRun();
+		$this->gitAddAndCommitWithMessage("Added master seeder and ran all seeders.");
 		$this->createDemoPage();
 		$this->gitAddAndCommitWithMessage("Added Demo page.");
 
@@ -245,7 +247,7 @@ class Velerator {
 		// create view if it doesnt exist
 	}
 	public function runRealDataSeeders() {
-		$table_seeder_calls = "";
+
 		$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
 		if (isset($this->project_config_array['SEEDREAL'])) {
 			foreach ($this->project_config_array['SEEDREAL'] as $table_and_fields => $inserts) {
@@ -270,19 +272,16 @@ class Velerator {
 				}
 				
 				$newseeder = str_replace('[NAME]', $model, $baseseeder);
-				$newseeder = str_replace('[REAL]', $realseed_str, $newseeder);
+				$newseeder = str_replace('// [REAL]', $realseed_str, $newseeder);
 				file_put_contents($this->full_app_path."/database/seeds/".$model."TableSeeder.php", $newseeder);
-				$table_seeder_calls .= '$this'."->call('".$model."TableSeeder');
-		";
+
 			}
 		}
-		$database_seeder_master = file_get_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php");
-		$new_dbseed_master = str_replace('// $this'."->call('UserTableSeeder');", $table_seeder_calls, $database_seeder_master);
-		file_put_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php", $new_dbseed_master);
+
 	}
 	public function runFakeDataSeeders() {
 		echo "Creating fake data seeders...\n";
-		$table_seeder_calls = "";
+		
 		if (isset($this->project_config_array['SEEDFAKE'])) {
 
 			$fakebase_str = '$faker = Faker\Factory::create();
@@ -291,6 +290,17 @@ class Velerator {
         {  
             [NAME]::create([  
                 [FAKE_ARRAY]
+            ]);  
+        }';
+        	$fakebase_pivot_str = '$faker = Faker\Factory::create();
+
+        $date = new \DateTime;
+        foreach(range(1,[COUNT]) as $index)  
+        {  
+            DB::table(\'[PIVOTTABLE]\')->insert([ 
+                [FAKE_ARRAY]
+                \'created_at\' => $date,
+                \'updated_at\' => $date,
             ]);  
         }';
 
@@ -320,23 +330,61 @@ class Velerator {
 					$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/PivotTableSeeder.php");
 					$newseeder = str_replace('[PIVOTNAME]', $pivot_name, $baseseeder);
 					$newseeder = str_replace('[PIVOTTABLE]', $pivot_table, $newseeder);
+					$newfakebase = str_replace('[PIVOTNAME]', $singular, $fakebase_pivot_str);
+
 				} else {
 					$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
 					$newseeder = str_replace('[NAME]', $singular, $baseseeder);
+					$newfakebase = str_replace('[NAME]', $singular, $fakebase_str);
 				}
-				$newfakebase = str_replace('[NAME]', $singular, $fakebase_str);
 				$newfakebase = str_replace('[COUNT]', $count, $newfakebase);
 				$newfakebase = str_replace('[FAKE_ARRAY]', $fakerstr, $newfakebase);
 				
 				$newseeder = str_replace('// [FAKE]', $newfakebase, $newseeder);
 
 				file_put_contents($this->full_app_path."/database/seeds/".$singular."TableSeeder.php", $newseeder);
-				$table_seeder_calls .= '$this'."->call('".$singular."TableSeeder');
+			}
+		}
+
+	}
+	function createMasterSeederAndRun() {
+		$seeded_models = [];
+		$table_seeder_calls = "";
+		if (isset($this->project_config_array['SEEDREAL'])) {
+			foreach ($this->project_config_array['SEEDREAL'] as $table_and_fields => $inserts) {
+				$table_arr = explode('|', $table_and_fields);
+				$table = trim($table_arr[0]);
+				$model = $this->singular_models[$table];
+				$seeded_models[$model] = 1;
+			}
+		}
+		if (isset($this->project_config_array['SEEDFAKE'])) {
+			foreach ($this->project_config_array['SEEDFAKE'] as $object_and_count => $fields) {
+				$obj_cnt_arr = explode(" ", $object_and_count);
+				$table = $obj_cnt_arr[0];
+				if (strpos($table, "_") > 0) {
+					// this is a pivot table
+					$pivot_table = $table;
+					$pivot_name = str_replace("_", " ", $table);
+					$pivot_name = str_replace(" ", "", ucwords($pivot_name));
+					$model = $pivot_name;
+				} else {
+					$model = $this->singular_models[$table];
+				}
+				
+				$seeded_models[$model] = 1;
+			}
+		}
+		if (count($seeded_models) > 1) {
+			foreach ($seeded_models as $model => $dud) {
+				$table_seeder_calls .= '$this->call('."'".$model."TableSeeder');
 		";
 			}
 		}
+
 		$database_seeder_master = file_get_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php");
-		$new_dbseed_master = str_replace('// $this'."->call('UserTableSeeder');", $table_seeder_calls, $database_seeder_master);
+		$replacestr = '// $this'."->call('UserTableSeeder');";
+		$new_dbseed_master = str_replace($replacestr, $replacestr.$table_seeder_calls, $database_seeder_master);
 		file_put_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php", $new_dbseed_master);
 
 
@@ -368,7 +416,7 @@ class Velerator {
 		$this->addAlias("Form", "Collective\Html\FormFacade");
       	$this->addAlias("Html", "Collective\Html\HtmlFacade");
 		
-		if (isset($this->project_config_array['FAKEDATA'])) {
+		if (isset($this->project_config_array['SEEDFAKE'])) {
 			
 			echo "Adding 'Faker' tool...\n";
 			shell_exec("composer require fzaninotto/faker");
