@@ -1102,10 +1102,11 @@ use App\\'.$singular.";", $thiscontroller);
 		if ($scope_function) {
 			$'.$table.' = '.$singular.'::$scope_function()->get();
 		} else {
-			$'.$table.' = '.$singular.'::all();
+			$'.$table.' = '.$singular.'::where("id", ">", 0);
 		}
 
 		[QUERYPARAMETERS]
+		$'.$table.' = $'.$table.'->paginate(15);
 		'.$returnformat.'');
 
 			$this->replaceEmptyFunction($controllerpath, "create", 'return view("'.$table.'.create");');
@@ -1433,10 +1434,9 @@ $pagename
 	</div>
 	<div class='row'>
 		<div class='columns small-12'>
+			Displaying items {!! $".$table."->firstItem() !!} to {!! $".$table."->lastItem() !!} of {!! $".$table."->total() !!}
 			<table>
-				
 				@foreach ($".$table." as $".strtolower($model).")
-
 					<tr>
 						<td><a href='/".$table."/{{ $".strtolower($model)."->id }}'>{{ $".strtolower($model)."->link_text }}</a></td>
 						@foreach ($".strtolower($model)."->getAttributes() as ".'$attribute'." => ".'$value'.")
@@ -1445,6 +1445,7 @@ $pagename
 					</tr>
 				@endforeach
 			</table>
+			{!! $".$table."->render() !!}
 		</div>
 	</div>
 @endsection";
