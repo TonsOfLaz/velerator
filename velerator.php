@@ -484,6 +484,10 @@ class Velerator {
 						if (count($thisfield_arr) == 2) {
 							$secondarytable = $thisfield_arr[1];
 						}
+						if (count($thisfield_arr) == 3) {
+							$secondarytable = $thisfield_arr[1];
+							$fieldfunction = $thisfield_arr[2];
+						}
 					} else if (strpos($fieldname, "_date") > 0) {
 						$fieldtype = "date";
 					} else if (count($thisfield_arr) == 2) {
@@ -491,6 +495,9 @@ class Velerator {
 					} else if (count($thisfield_arr) == 3) {
 						$fieldtype = $thisfield_arr[1];
 						$fieldfunction = $thisfield_arr[2];
+					}
+					if (!$fieldfunction) {
+						$fieldfunction = "nullable";
 					}
 					$tempfield_arr = [];
 					$tempfield_arr['name'] = $fieldname;
