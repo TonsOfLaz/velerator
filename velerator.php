@@ -769,10 +769,10 @@ class Velerator {
 								"secondary" => $this->getTableFromModelName($model)];
 			$morphable_id_arr = [	"name" 		=> $morph_singular."_id",
 									"type" 		=> "integer",
-									"secondary" => $this->getTableFromModelName($model)];
+									"secondary" => ''];
 			$morphable_type_arr = [	"name" 		=> $morph_singular."_type",
 									"type" 		=> "string",
-									"secondary" => $this->getTableFromModelName($model)];
+									"secondary" => ''];
 			$morphable_table_fields = [];
 			$morphable_table_fields[] = $morph_id_arr;
 			$morphable_table_fields[] = $morphable_id_arr;
