@@ -384,7 +384,7 @@ class Velerator {
 
 		$database_seeder_master = file_get_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php");
 		$replacestr = '// $this'."->call('UserTableSeeder');";
-		$new_dbseed_master = str_replace($replacestr, $replacestr.$table_seeder_calls, $database_seeder_master);
+		$new_dbseed_master = str_replace($replacestr, $table_seeder_calls, $database_seeder_master);
 		file_put_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php", $new_dbseed_master);
 
 
@@ -609,6 +609,7 @@ class Velerator {
 	public function velerateRELATIONSHIPS() {
 		// Pivot tables and Model relationships
 		$pivot_tables = [];
+		$morph_tables = [];
 
 		foreach ($this->singular_models as $table => $model) {
 			$function_str = "";
@@ -628,12 +629,14 @@ class Velerator {
 					$relationship_field = $relationship_arr[3];
 				}
 
-
+				//echo $relationship_type;
 				switch ($relationship_type) {
 					case 'hasOne':
 						if (!$function_name) {
 							$function_name = strtolower($relationship_model);
 						}
+						$linked_field = $relationship_field ? $relationship_field : strtolower($relationship_model)."_id";
+						$this->form_models_array[$model]['hasone'][$linked_field] = $relationship_model;
 						$function_str .= $this->getRelationshipFunction($function_name, 
 																		$relationship_model, 
 																		$relationship_type,
@@ -693,9 +696,32 @@ class Velerator {
 					case 'morphMany':
 						break;
 					case 'morphToMany':
+
+						$relationship_field = $relationship_arr[2];
+						$morph_tables[$relationship_field] = $relationship_model;
+						if (!$function_name) {
+							$function_name = $this->getTableFromModelName($relationship_model);
+						}
+						$function_str .= $this->getRelationshipFunction($function_name, 
+																		$relationship_model, 
+																		$relationship_type,
+																		$relationship_field);
+						
 						break;
 					case 'morphedByMany':
+						//print_r($relationship_arr);
+						$relationship_field = $relationship_arr[2];
+						$morph_tables[$relationship_field] = $model;
+						if (!$function_name) {
+							$function_name = $this->getTableFromModelName($relationship_model);
+						}
+						$function_str .= $this->getRelationshipFunction($function_name, 
+																		$relationship_model, 
+																		$relationship_type,
+																		$relationship_field);
+						
 						break;
+						
 				}
 
 			}
@@ -735,6 +761,28 @@ class Velerator {
 			$linkfields_arr[] = $secondary_arr;
 			$this->addFieldArrayToCreateSchema($pivot_table_name, $linkfields_arr);
 		}
+		foreach($morph_tables as $morph_singular => $model) {
+			$morph_table = $morph_singular."s";
+			shell_exec("php artisan make:migration --create=$morph_table create_".$morph_table."_table");
+			$morph_id_arr = [	"name" 		=> strtolower($model)."_id",
+								"type" 		=> "integer",
+								"secondary" => $this->getTableFromModelName($model)];
+			$morphable_id_arr = [	"name" 		=> $morph_singular."_id",
+									"type" 		=> "integer",
+									"secondary" => $this->getTableFromModelName($model)];
+			$morphable_type_arr = [	"name" 		=> $morph_singular."_type",
+									"type" 		=> "string",
+									"secondary" => $this->getTableFromModelName($model)];
+			$morphable_table_fields = [];
+			$morphable_table_fields[] = $morph_id_arr;
+			$morphable_table_fields[] = $morphable_id_arr;
+			$morphable_table_fields[] = $morphable_type_arr;
+
+
+
+			$this->addFieldArrayToCreateSchema($morph_table, $morphable_table_fields);
+
+		}
 	}
 	public function addCreateAndEditForm($table, $model) {
 		//print_r($this->form_models_array);
@@ -746,13 +794,37 @@ class Velerator {
 		$edit_str = "";
 		$update_str = "";
 		$store_str = "";
-		if (isset($this->form_models_array[$model]['belongsto']) || isset($this->form_models_array[$model]['belongstomany'])) {
+		if (isset($this->form_models_array[$model]['belongsto']) ||
+			isset($this->form_models_array[$model]['hasone']) || 
+			isset($this->form_models_array[$model]['belongstomany'])) {
 
 			$return_str = "return view('".$table.".create', compact(";
 			$usemodel_str = 'use App\\'.$model.';';
 			$once = true;
 			if (isset($this->form_models_array[$model]['belongsto'])) {
 				foreach ($this->form_models_array[$model]['belongsto'] as $fieldname => $related_model) {
+					$addmodel_str = 'use App\\'.$related_model.';';
+					if (strpos($newcontroller, $addmodel_str) < 1 && strpos($usemodel_str, $addmodel_str) < 1) {
+						$usemodel_str .= "
+$addmodel_str";
+					}
+					$related_table = $this->getTableFromModelName($related_model);
+					$create_str .= '$'.$related_table."_collection = $related_model::all();
+		$".$related_table." = ['' => ''];
+		foreach ($".$related_table."_collection as $".strtolower($related_model).") {
+			$".$related_table."[$".strtolower($related_model)."->id] = $".strtolower($related_model)."->link_text;
+		}
+		";
+					if ($once) {
+						$return_str .= "'".$related_table."'";
+						$once = false;
+					} else {
+						$return_str .= ", '".$related_table."'";
+					}
+				}
+			}
+			if (isset($this->form_models_array[$model]['hasone'])) {
+				foreach ($this->form_models_array[$model]['hasone'] as $fieldname => $related_model) {
 					$addmodel_str = 'use App\\'.$related_model.';';
 					if (strpos($newcontroller, $addmodel_str) < 1 && strpos($usemodel_str, $addmodel_str) < 1) {
 						$usemodel_str .= "
@@ -851,6 +923,13 @@ $addmodel_str";
 				case 'unsignedInteger':
 					if (isset($this->form_models_array[$model]['belongsto'][$fieldname])) {
 						$related_model = $this->form_models_array[$model]['belongsto'][$fieldname];
+						$related_table = $this->getTableFromModelName($related_model);
+						$formfields .= "
+		{!! Form::label('$fieldname', '$related_model') !!}
+		{!! Form::select('$fieldname', $".$related_table.", null, []) !!}
+";
+					} else if (isset($this->form_models_array[$model]['hasone'][$fieldname])) {
+						$related_model = $this->form_models_array[$model]['hasone'][$fieldname];
 						$related_table = $this->getTableFromModelName($related_model);
 						$formfields .= "
 		{!! Form::label('$fieldname', '$related_model') !!}
@@ -1097,7 +1176,7 @@ use App\\'.$singular.";", $thiscontroller);
 			if ($this->is_api) {
 				$returnformat = 'return $'.$table.';';
 			} else {
-				$returnformat = 'return view("'.$table.'.list", compact("'.$table.'"));';
+				$returnformat = 'return view("'.$table.'.index", compact("'.$table.'"));';
 			}
 			$controllerpath = "./app/Http/Controllers/".$capstable."Controller.php";
 			$this->replaceEmptyFunction($controllerpath, "index",  '$scope = $request->input("scope");
@@ -1126,7 +1205,7 @@ use App\\'.$singular.";", $thiscontroller);
 				$this->replaceEmptyFunction($controllerpath, "show",   "return compact('".$singular_lower."');");
 			} else {
 				$this->replaceEmptyFunction($controllerpath, "show",   "
-		return view('".$singular_lower."', compact('".$singular_lower."'));");
+		return view('".$table.".show', compact('".$singular_lower."'));");
 			}
 			$this->replaceEmptyFunction($controllerpath, "edit",   "return view('".$table.".edit', compact('".$singular_lower."'));");
 			$this->replaceEmptyFunction($controllerpath, "update", '$'.$singular_lower.'->update($request->all());
@@ -1209,10 +1288,15 @@ use App\\'.$singular.";", $thiscontroller);
 			if (isset($modellinks[$model])) {
 				//$links_html .= $modellinks[$model][$table]['function'];
 				foreach ($modellinks[$model] as $func => $rel_model) {
-					$links_html .= $rel_model.': <a href="/'.$this->getTableFromModelName($rel_model).'/{{ $'.strtolower($model)."->".$func."->id }}".'">{{ $'.strtolower($model)."->".$func."->link_text }}</a><br>";
+					$links_html .= "@if (count($".strtolower($model)."->".strtolower($rel_model)."))
+			";
+					$links_html .= $rel_model.': <a href="/'.$this->getTableFromModelName($rel_model).'/{{ $'.strtolower($model)."->".$func."->id }}".'">{{ $'.strtolower($model)."->".$func."->link_text }}</a><br>
+		";
+					$links_html .= "@endif
+		";
 				}
 			}
-			$modelviewpath = $this->full_app_path."/resources/views/".strtolower($model).".blade.php";
+			$modelviewpath = $this->full_app_path."/resources/views/".$table."/show.blade.php";
 			$modelviewfile = file_get_contents($modelviewpath);
 			$newfile = str_replace("[LINKS]", $links_html, $modelviewfile);
 			file_put_contents($modelviewpath, $newfile);
@@ -1256,7 +1340,7 @@ use App\\'.$singular.";", $thiscontroller);
 	return compact('".$singular_lower."', ";
 			} else {
 				$show_compact = "
-	return view('".$singular_lower."', compact('".$singular_lower."', ";
+	return view('".$table.".show', compact('".$singular_lower."', ";
 			}
 			$tabs_list = "
 	";
@@ -1322,14 +1406,14 @@ use App\\'.$singular.";", $thiscontroller);
 				if ($this->is_api) {
 					$replacestr = "return compact('".$singular_lower."');";
 				} else {
-					$replacestr = "return view('".$singular_lower."', compact('".$singular_lower."'));";
+					$replacestr = "return view('".$table.".show', compact('".$singular_lower."'));";
 				}
 				
 				$newcontroller = str_replace($replacestr, $show_code.$show_compact, $controllerfile);
 				file_put_contents($controllerpath, $newcontroller);
 
 			} 
-			$modelviewpath = $this->full_app_path."/resources/views/".strtolower($model).".blade.php";
+			$modelviewpath = $this->full_app_path."/resources/views/".$table."/show.blade.php";
 			$modelviewfile = file_get_contents($modelviewpath);
 			$newfile = str_replace("[TABS]", $tabs_list, $modelviewfile);
 			file_put_contents($modelviewpath, $newfile);
@@ -1340,9 +1424,9 @@ use App\\'.$singular.";", $thiscontroller);
 		foreach ($this->singular_models as $table => $singular) {
 			mkdir($this->full_app_path."/resources/views/$table");
 			$mainview = $this->getModelViewMain($singular);
-			file_put_contents($this->full_app_path."/resources/views/".strtolower($singular).".blade.php", $mainview);
+			file_put_contents($this->full_app_path."/resources/views/".$table."/show.blade.php", $mainview);
 			$mainlist = $this->getListViewMain($table);
-			file_put_contents($this->full_app_path."/resources/views/".$table."/list.blade.php", $mainlist);
+			file_put_contents($this->full_app_path."/resources/views/".$table."/index.blade.php", $mainlist);
 			$this->addCreateAndEditForm($table, $singular);
 			$this->addModelViewCommand($table, $singular, "store");
 			$this->addModelViewCommand($table, $singular, "edit");
