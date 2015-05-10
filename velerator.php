@@ -282,29 +282,13 @@ class Velerator {
 	public function runFakeDataSeeders() {
 		echo "Creating fake data seeders...\n";
 		
-		if (isset($this->project_config_array['SEEDFAKE'])) {
+		if (isset($this->project_config_array['TESTDUMMY'])) {
 
-			$fakebase_str = '$faker = Faker\Factory::create();
+			$fakebase_str = '$faker(\'App\[NAME]\', [
+	[ARRAY]
+]);'
 
-        foreach(range(1,[COUNT]) as $index)  
-        {  
-            [NAME]::create([  
-                [FAKE_ARRAY]
-            ]);  
-        }';
-        	$fakebase_pivot_str = '$faker = Faker\Factory::create();
-
-        $date = new \DateTime;
-        foreach(range(1,[COUNT]) as $index)  
-        {  
-            DB::table(\'[PIVOTTABLE]\')->insert([ 
-                [FAKE_ARRAY]
-                \'created_at\' => $date,
-                \'updated_at\' => $date,
-            ]);  
-        }';
-
-			foreach ($this->project_config_array['SEEDFAKE'] as $object_and_count => $fields) {
+			foreach ($this->project_config_array['TESTDUMMY'] as $object_and_count => $fields) {
 				$obj_cnt_arr = explode(" ", $object_and_count);
 				$object = $obj_cnt_arr[0];
 				//echo $object."\n";
@@ -315,8 +299,19 @@ class Velerator {
 					$fakergen_arr = explode("|", $field_and_fakergen, 2);
 					$faker_field = trim($fakergen_arr[0]);
 					$faker_gen = trim($fakergen_arr[1]);
-					$fakerstr .= "'$faker_field' => ".'$faker->'.$faker_gen.",
-				";
+
+					if ($faker_gen[0] == "*") {
+						// this is an object
+						$fakerstr .= "'$faker_field' => ".'$faker->'.$faker_gen.",
+	";
+					} else if ($faker_gen[0] == '"') {
+						$fakerstr .= "'$faker_field' => ".'$faker->'.$faker_gen.",
+	";
+					} else {
+						$fakerstr .= "'$faker_field' => ".'$faker->'.$faker_gen.",
+	";
+					}
+					
 				}
 				if (isset($this->singular_models[$object])) {
 					$singular = $this->singular_models[$object];
@@ -416,10 +411,11 @@ class Velerator {
 		$this->addAlias("Form", "Collective\Html\FormFacade");
       	$this->addAlias("Html", "Collective\Html\HtmlFacade");
 		
-		if (isset($this->project_config_array['SEEDFAKE'])) {
+		if (isset($this->project_config_array['TESTDUMMY'])) {
 			
-			echo "Adding 'Faker' tool...\n";
-			shell_exec("composer require fzaninotto/faker");
+			echo "Adding 'TestDummy' tool...\n";
+			//shell_exec("composer require fzaninotto/faker");
+			shell_exec('composer require laracasts/testdummy');
 		}
 		if (isset($this->project_config_array['PACKAGES'])) {
 			foreach ($this->project_config_array['PACKAGES'] as $name => $package_settings) {
