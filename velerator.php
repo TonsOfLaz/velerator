@@ -699,6 +699,7 @@ class Velerator {
 
 						$relationship_field = $relationship_arr[2];
 						$morph_tables[$relationship_field] = $relationship_model;
+						$this->form_models_array[$model]['morphtomany'][$relationship_model] = 1;
 						if (!$function_name) {
 							$function_name = $this->getTableFromModelName($relationship_model);
 						}
@@ -778,8 +779,6 @@ class Velerator {
 			$morphable_table_fields[] = $morphable_id_arr;
 			$morphable_table_fields[] = $morphable_type_arr;
 
-
-
 			$this->addFieldArrayToCreateSchema($morph_table, $morphable_table_fields);
 
 		}
@@ -796,7 +795,8 @@ class Velerator {
 		$store_str = "";
 		if (isset($this->form_models_array[$model]['belongsto']) ||
 			isset($this->form_models_array[$model]['hasone']) || 
-			isset($this->form_models_array[$model]['belongstomany'])) {
+			isset($this->form_models_array[$model]['belongstomany']) ||
+			isset($this->form_models_array[$model]['morphtomany'])) {
 
 			$return_str = "return view('".$table.".create', compact(";
 			$usemodel_str = 'use App\\'.$model.';';
@@ -847,6 +847,35 @@ $addmodel_str";
 			}
 			if (isset($this->form_models_array[$model]['belongstomany'])) {
 				foreach ($this->form_models_array[$model]['belongstomany'] as $related_model => $dud) {
+					$addmodel_str = 'use App\\'.$related_model.';';
+					if (strpos($newcontroller, $addmodel_str) < 1 && strpos($usemodel_str, $addmodel_str) < 1) {
+						$usemodel_str .= "
+$addmodel_str";
+					}
+					$related_table = $this->getTableFromModelName($related_model);
+					$related_list = strtolower($related_model)."_list";
+					$update_str .= '$'.strtolower($model).'->'.$related_table.'()->sync($request->input("'.$related_list.'"));
+		';
+					$store_str .= '$'.strtolower($model).'->'.$related_table.'()->attach($request->input("'.$related_list.'"));
+		';
+					$create_str .= '$'.$related_table."_collection = $related_model::all();
+		$".$related_table." = [];
+		foreach ($".$related_table."_collection as $".strtolower($related_model).") {
+			$".$related_table."[$".strtolower($related_model)."->id] = $".strtolower($related_model)."->link_text;
+		}
+		";
+					if ($once) {
+						$return_str .= "'".$related_table."'";
+						$once = false;
+					} else {
+						$return_str .= ", '".$related_table."'";
+					}
+				}
+			}
+
+			if (isset($this->form_models_array[$model]['morphtomany'])) {
+				//echo $model;
+				foreach ($this->form_models_array[$model]['morphtomany'] as $related_model => $dud) {
 					$addmodel_str = 'use App\\'.$related_model.';';
 					if (strpos($newcontroller, $addmodel_str) < 1 && strpos($usemodel_str, $addmodel_str) < 1) {
 						$usemodel_str .= "
@@ -966,6 +995,22 @@ $addmodel_str";
 </div>";
 			}
 		}
+
+		// Then the many to many MORPH tables, since they are not in the schema
+		if (isset($this->form_models_array[$model]['morphtomany'])) {
+			foreach ($this->form_models_array[$model]['morphtomany'] as $related_model => $dud) {
+				$related_list = strtolower($related_model)."_list";
+				$related_table = $this->getTableFromModelName($related_model);
+				$related_caps = ucwords($related_table);
+				$formfields .= "<div class='row'>
+	<div class='small-12 columns'>
+		{!! Form::label('$related_list', '$related_caps') !!}
+		{!! Form::select('$related_list"."[]"."', $".$related_table.", null, ['multiple' => 'multiple']) !!}
+	</div>
+</div>";
+			}
+		}
+
 		$formfields .= "
 <div class='row'>
 	<div class='small-12 columns'>
