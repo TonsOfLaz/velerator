@@ -92,12 +92,18 @@ class Velerator {
 		$this->velerateListParameterFilters();
 		$this->gitAddAndCommitWithMessage("Added list parameter filters.");
 		shell_exec("php artisan migrate");
-		$this->runRealDataSeeders();
+		$this->createTESTFACTORIES();
+		$this->gitAddAndCommitWithMessage("Added TESTFACTORIES for fake database data");
+		$this->runSEEDREAL();
+		/*
+		Need to get these to work with factories
+		
 		$this->gitAddAndCommitWithMessage("Added real data seeder files.");
-		$this->runFakeDataSeeders();
+		$this->runSEEDFAKE();
 		$this->gitAddAndCommitWithMessage("Added fake data seeder files.");
 		$this->createMasterSeederAndRun();
 		$this->gitAddAndCommitWithMessage("Added master seeder and ran all seeders.");
+		*/
 		$this->createDemoPage();
 		$this->gitAddAndCommitWithMessage("Added Demo page.");
 
@@ -140,6 +146,7 @@ class Velerator {
 								'password'		=> 'string',
 								'remember_token' => 'string'];
 		$this->schema['users'] = $users_default_schema;
+		$this->foreigntables = [];
 		$this->velerator_path = getcwd();
 		$this->full_app_path = $this->velerator_path."/".$this->project_name;
 		
@@ -246,7 +253,7 @@ class Velerator {
 		// add to controller file
 		// create view if it doesnt exist
 	}
-	public function runRealDataSeeders() {
+	public function runSEEDREAL() {
 
 		$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
 		if (isset($this->project_config_array['SEEDREAL'])) {
@@ -279,21 +286,201 @@ class Velerator {
 		}
 
 	}
-	public function runFakeDataSeeders() {
+
+	public function createTESTFACTORIES() {
+		if (isset($this->project_config_array['TESTFACTORIES'])) {
+
+			$factory_file = "<?php
+
+";
+
+			foreach ($this->schema as $table => $allfields) {
+
+				if (!isset($this->singular_models[$table])) {
+					continue;
+				}
+				$model = $this->singular_models[$table];
+				$fakerstr = '$factory(\'App\\'.$model."', [
+	";
+
+				$fields_override_arr = [];
+				if (isset($project_config_array['TESTFACTORIES'][$table])) {
+					foreach ($project_config_array['TESTFACTORIES'][$table] as $field_and_fakergen) {
+						$fakergen_arr = explode("|", $field_and_fakergen, 2);
+						$faker_field = trim($fakergen_arr[0]);
+						$faker_gen = trim($fakergen_arr[1]);
+
+						$fields_override_arr[$faker_field] = $faker_gen;
+					}
+				}
+
+				//print_r($this->schema);
+				//print_r($this->foreigntables);
+
+
+
+				foreach ($allfields as $faker_field => $fieldtype) {
+
+					if (isset($fields_override_arr[$faker_field])) {
+						// The user has defined a value in the testfactories page
+						$faker_gen = $fields_override_arr[$faker_field];
+						if ($faker_gen[0] == "*") {
+							// this is an object
+							$faker_gen = str_replace("*", "'factory:App\\", $faker_gen);
+							$faker_gen .= "'";
+							$fakerstr .= "'$faker_field' => $faker_gen,
+	";
+						} else if ($faker_gen[0] == "'") {
+							$fakerstr .= "'$faker_field' => $faker_gen,
+	";
+						} else {
+							$faker_gen = '$faker->'.$faker_gen;
+							$fakerstr .= "'$faker_field' => ".$faker_gen.",
+	";
+						}
+
+					} else {
+
+						if (isset($this->foreigntables[$table][$faker_field])) {
+							// this is a reference to another object
+							$foreigntable = $this->foreigntables[$table][$faker_field];
+							$fakerstr .= "'$faker_field' => 'factory:App\\".$this->singular_models[$foreigntable]."',
+	";
+						} else {
+
+							// Just fill in defaults as defined by naming convention
+							// If no default is found, fill in based on type (string, integer, etc)
+							$field_type = $this->schema[$table][$faker_field];
+							$fakerstr .= "'$faker_field' => ".'$faker->'.$this->getDefaultTestFactoryValues($faker_field, $field_type).",
+	";
+
+						}
+
+					}
+
+
+					
+				}
+				$fakerstr .= "
+]);
+
+";
+				$factory_file .= $fakerstr;
+			}
+		}
+		mkdir($this->full_app_path."/tests/factories");
+		file_put_contents($this->full_app_path."/tests/factories/factories.php", $factory_file);
+
+	}
+	public function getDefaultTestFactoryValues($field_name, $field_type) {
+		$foundmatch = false;
+		$fakerfunction = "";
+		// Matching some standards to fzaninotto/faker functions
+		$end_match_array = [
+			'user_name'		=> 'userName',
+			'password'		=> 'md5',
+			'first_name' 	=> 'firstName',
+			'last_name' 	=> 'lastName',
+			'company_name' 	=> 'company',
+			'company'		=> 'company',
+			'name'			=> 'name',
+			'email' 		=> 'safeEmail',
+			'address'		=> 'streetAddress',
+			'address2'		=> 'secondaryAddress',
+			'city'			=> 'city',
+			'state'			=> 'stateAbbr',
+			'zip'			=> 'postCode',
+			'zipcode'		=> 'postCode',
+			'zip_code'		=> 'postCode',
+			'country'		=> 'country',
+			'latitude'		=> 'latitude',
+			'longitude' 	=> 'longitude',
+			'phone'			=> 'phoneNumber',
+			'phone_number' 	=> 'phoneNumber',
+			'cell'			=> 'phoneNumber',
+			'fax'			=> 'phoneNumber',
+			'comments'		=> 'realText()',
+			'comment'		=> 'realText()',
+			'note'			=> 'realText()',
+			'date'			=> 'dateTime()',
+		];
+		if (isset($end_match_array[$field_name])) {
+			// Exact match
+			$foundmatch = true;
+			$fakerfunction = $end_match_array[$field_name];
+
+		} else {
+			foreach ($end_match_array as $defaultfield => $faker_function_name) {
+				if ($this->endsWith($field_name, "_".$defaultfield) && !$foundmatch) {
+					// Ends with the phrase after an underscore, i.e. _date
+					// stops at first hit
+					$foundmatch = true;
+					$fakerfunction = $faker_function_name;
+				}
+			}
+		}
+		if ($foundmatch) {
+			return $fakerfunction;
+		} else {
+			// No match is found, time to look at the field type
+			$datatype_faker_mapper = [
+				'bigIncrements'	=> 'randomNumber()',
+				'bigInteger'	=> 'randomNumber()',
+				'boolean'		=> 'boolean()',
+				'binary'		=> 'randomNumber(1000)',
+				'char'			=> 'word',
+				'date'			=> 'date()',
+				'dateTime'		=> 'dateTime()',
+			//	'decimal'		=> 'randomNumber()',
+				'double'		=> 'randomFloat',
+			//	'enum'			=> '',
+				'float'			=> 'randomFloat()',
+				'increments'	=> 'randomNumber()',
+				'integer'		=> 'randomNumber()',
+			//	'json'			=> '',
+			//	'jsonb'			=> '',
+				'longText'		=> 'text(5000)',
+				'mediumInteger'	=> 'randomNumber()',
+				'mediumText'	=> 'text(2500)',
+				'smallInteger'	=> 'randomNumber(4)',
+				'tinyInteger'	=> 'randomNumber(2)',
+				'string'		=> 'word',
+				'text'			=> 'text()',
+				'time'			=> 'time()',
+				'timestamp'		=> 'dateTime()',
+				'unsignedInteger' => 'randomNumber()',
+
+			];
+			return $datatype_faker_mapper[$field_type];
+		}
+	}
+	public function startsWith($haystack, $needle)
+	{
+	     $length = strlen($needle);
+	     return (substr($haystack, 0, $length) === $needle);
+	}
+
+	public function endsWith($haystack, $needle)
+	{
+	    $length = strlen($needle);
+	    if ($length == 0) {
+	        return true;
+	    }
+
+	    return (substr($haystack, -$length) === $needle);
+	}
+	public function runSEEDFAKE() {
 		echo "Creating fake data seeders...\n";
 		
-		if (isset($this->project_config_array['TESTDUMMY'])) {
+		if (isset($this->project_config_array['TESTFACTORIES'])) {
 
 			$fakebase_str = '$faker(\'App\[NAME]\', [
 	[ARRAY]
-]);'
+]);';
 
-			foreach ($this->project_config_array['TESTDUMMY'] as $object_and_count => $fields) {
-				$obj_cnt_arr = explode(" ", $object_and_count);
-				$object = $obj_cnt_arr[0];
-				//echo $object."\n";
+			foreach ($this->project_config_array['TESTFACTORIES'] as $table => $fields) {
+
 				$fakerstr = "";
-				$count = $obj_cnt_arr[1];
 
 				foreach ($fields as $field_and_fakergen) {
 					$fakergen_arr = explode("|", $field_and_fakergen, 2);
@@ -302,21 +489,24 @@ class Velerator {
 
 					if ($faker_gen[0] == "*") {
 						// this is an object
-						$fakerstr .= "'$faker_field' => ".'$faker->'.$faker_gen.",
+						$faker_gen = str_replace("*", "'factory:App\\", $faker_gen);
+						$faker_gen .= "'";
+						$fakerstr .= "'$faker_field' => $faker_gen,
 	";
-					} else if ($faker_gen[0] == '"') {
-						$fakerstr .= "'$faker_field' => ".'$faker->'.$faker_gen.",
+					} else if ($faker_gen[0] == "'") {
+						$fakerstr .= "'$faker_field' => $faker_gen,
 	";
 					} else {
-						$fakerstr .= "'$faker_field' => ".'$faker->'.$faker_gen.",
+						$faker_gen = str_replace("$", '$faker->', $faker_gen);
+						$fakerstr .= "'$faker_field' => ".$faker_gen.",
 	";
 					}
 					
 				}
-				if (isset($this->singular_models[$object])) {
-					$singular = $this->singular_models[$object];
+				if (isset($this->singular_models[$table])) {
+					$singular = $this->singular_models[$table];
 				}
-				if (strpos($object, "_") > 0) {
+				if (strpos($table, "_") > 0) {
 					// this is a pivot table
 					$pivot_table = $object;
 					$pivot_name = str_replace("_", " ", $object);
@@ -411,7 +601,7 @@ class Velerator {
 		$this->addAlias("Form", "Collective\Html\FormFacade");
       	$this->addAlias("Html", "Collective\Html\HtmlFacade");
 		
-		if (isset($this->project_config_array['TESTDUMMY'])) {
+		if (isset($this->project_config_array['TESTFACTORIES'])) {
 			
 			echo "Adding 'TestDummy' tool...\n";
 			//shell_exec("composer require fzaninotto/faker");
@@ -589,8 +779,10 @@ class Velerator {
 				$str .= '$table'."->foreign('$name')
 				->references('id')->on('$secondarytable');
 	      	";
+	      		$this->foreigntables[$edit_table][$name] = $secondarytable;
 			}
 			$this->schema[$edit_table][$name] = $type;
+
 		}
 		$glob_arr = glob($this->full_app_path."/database/migrations/*_create_".$edit_table."_table.php");
 		if (count($glob_arr) > 0) {
