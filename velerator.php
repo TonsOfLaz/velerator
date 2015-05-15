@@ -32,7 +32,12 @@ class Velerator {
 			$this->brand_new_install = true;
 			
 			//$this->buildFreshLaravelInstallWithPackages();
-			shell_exec("laravel new ".$this->project_name);
+
+			// For current live version (5.0)
+			//shell_exec("laravel new ".$this->project_name);
+			
+			// For current development version (5.1)
+			shell_exec("composer create-project laravel/laravel ".$this->project_name." dev-develop");
 			chdir($this->full_app_path);
 			shell_exec("git init");
 			shell_exec("git checkout --orphan velerator_fresh_install");
@@ -195,6 +200,7 @@ class Velerator {
 		file_put_contents($this->full_app_path."/config/database.php", $new_db_config);
 	}
 	public function bringInFoundationCSS() {
+		mkdir($this->full_app_path."/public/css");
 		mkdir($this->full_app_path."/public/css/foundation");
 		shell_exec("cp ".$this->velerator_path."/velerator_files/foundation/css/*.css ".$this->full_app_path."/public/css/foundation");
 		mkdir($this->full_app_path."/public/js");
@@ -1307,7 +1313,9 @@ Route::get('".$routebase_arr[0]."', '".$controller."@".$routebase_arr[0]."');";
 				
 			}
 		}
-		$replacestr = "Route::get('home', 'HomeController@index');";
+		$replacestr = "Route::get('/', function () {
+    return view('welcome');
+});";
 		$newfile = str_replace($replacestr, $replacestr.$routestr, $routefile);
 		file_put_contents($this->full_app_path.'/app/Http/routes.php', $newfile);
 		//print_r($controller_arr);
@@ -1446,7 +1454,9 @@ use App\\'.$singular.";", $thiscontroller);
 		return redirect("'.$table.'/".$'.$singular_lower.'->id);');
 			$this->replaceEmptyFunction($controllerpath, "destroy","return view('".$table.".".$singular_lower."_destroy', compact('".$singular_lower."'));");
 		}
-		$replace = "Route::get('home', 'HomeController@index');";
+		$replace = "Route::get('/', function () {
+    return view('welcome');
+});";
 		$newroutes = str_replace($replace, $replace."\n".$routestr, $oldroutes);
 		file_put_contents("./app/Http/routes.php", $newroutes);
 
@@ -2009,7 +2019,10 @@ $modelstr", $commandfile);
 		}
 		//print_r($this->demopage_array);
 		$routes = file_get_contents($this->full_app_path."/app/Http/routes.php");
-		$newroutes = str_replace("Route::get('/', 'WelcomeController@index');", "Route::get('/', function() {
+		$replacestr = "Route::get('/', function () {
+    return view('welcome');
+});";
+		$newroutes = str_replace($replacestr, "Route::get('/', function() {
 	return view('velerator_demo');
 });", $routes);
 		file_put_contents($this->full_app_path."/app/Http/routes.php", $newroutes);

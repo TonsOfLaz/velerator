@@ -16,7 +16,9 @@ Route::get('/', function() {
 });</pre>
 		With:
 		<pre class="codeblock">
-Route::get('/', 'WelcomeController@index');</pre>
+Route::get('/', function () {
+    return view('welcome');
+});</pre>
 	</div>
 	
 </div>
