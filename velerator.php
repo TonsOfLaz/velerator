@@ -98,12 +98,9 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added list parameter filters.");
 		shell_exec("php artisan migrate");
 		$this->createTESTFACTORIES();
-		$this->gitAddAndCommitWithMessage("Added TESTFACTORIES for fake database data");
-		$this->runSEEDREAL();
-		/*
-		Need to get these to work with factories
-		
-		$this->gitAddAndCommitWithMessage("Added real data seeder files.");
+		$this->gitAddAndCommitWithMessage("Added TESTFACTORIES for fake database data.");
+		//$this->runSEEDREAL();
+		//$this->gitAddAndCommitWithMessage("Added real data seeder files.");
 		$this->runSEEDFAKE();
 		$this->gitAddAndCommitWithMessage("Added fake data seeder files.");
 		$this->createMasterSeederAndRun();
@@ -373,9 +370,10 @@ class Velerator {
 ";
 				$factory_file .= $fakerstr;
 			}
+			mkdir($this->full_app_path."/tests/factories");
+			file_put_contents($this->full_app_path."/tests/factories/factories.php", $factory_file);
 		}
-		mkdir($this->full_app_path."/tests/factories");
-		file_put_contents($this->full_app_path."/tests/factories/factories.php", $factory_file);
+		
 
 	}
 	public function getDefaultTestFactoryValues($field_name, $field_type) {
@@ -409,6 +407,7 @@ class Velerator {
 			'comment'		=> 'realText()',
 			'note'			=> 'realText()',
 			'date'			=> 'dateTime()',
+			'year'			=> 'year()',
 		];
 		if (isset($end_match_array[$field_name])) {
 			// Exact match
@@ -478,63 +477,45 @@ class Velerator {
 	public function runSEEDFAKE() {
 		echo "Creating fake data seeders...\n";
 		
-		if (isset($this->project_config_array['TESTFACTORIES'])) {
+		if (isset($this->project_config_array['SEEDFAKE'])) {
 
-			$fakebase_str = '$faker(\'App\[NAME]\', [
-	[ARRAY]
-]);';
+			$fakebase_str = '';
 
-			foreach ($this->project_config_array['TESTFACTORIES'] as $table => $fields) {
+			foreach ($this->project_config_array['SEEDFAKE'] as $table_and_count) {
 
-				$fakerstr = "";
+				$table_and_count_arr = explode(" ", $table_and_count, 2);
+				$table = trim($table_and_count_arr[0]);
+				$count = trim($table_and_count_arr[1]);
 
-				foreach ($fields as $field_and_fakergen) {
-					$fakergen_arr = explode("|", $field_and_fakergen, 2);
-					$faker_field = trim($fakergen_arr[0]);
-					$faker_gen = trim($fakergen_arr[1]);
-
-					if ($faker_gen[0] == "*") {
-						// this is an object
-						$faker_gen = str_replace("*", "'factory:App\\", $faker_gen);
-						$faker_gen .= "'";
-						$fakerstr .= "'$faker_field' => $faker_gen,
-	";
-					} else if ($faker_gen[0] == "'") {
-						$fakerstr .= "'$faker_field' => $faker_gen,
-	";
-					} else {
-						$faker_gen = str_replace("$", '$faker->', $faker_gen);
-						$fakerstr .= "'$faker_field' => ".$faker_gen.",
-	";
-					}
-					
-				}
-				if (isset($this->singular_models[$table])) {
-					$singular = $this->singular_models[$table];
-				}
-				if (strpos($table, "_") > 0) {
-					// this is a pivot table
-					$pivot_table = $object;
-					$pivot_name = str_replace("_", " ", $object);
-					$pivot_name = str_replace(" ", "", ucwords($pivot_name));
-					$singular = $pivot_name;
-					$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/PivotTableSeeder.php");
-					$newseeder = str_replace('[PIVOTNAME]', $pivot_name, $baseseeder);
-					$newseeder = str_replace('[PIVOTTABLE]', $pivot_table, $newseeder);
-					$newfakebase = str_replace('[PIVOTNAME]', $singular, $fakebase_pivot_str);
-
-				} else {
-					$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
-					$newseeder = str_replace('[NAME]', $singular, $baseseeder);
-					$newfakebase = str_replace('[NAME]', $singular, $fakebase_str);
-				}
-				$newfakebase = str_replace('[COUNT]', $count, $newfakebase);
-				$newfakebase = str_replace('[FAKE_ARRAY]', $fakerstr, $newfakebase);
+				$model = $this->singular_models[$table];
 				
-				$newseeder = str_replace('// [FAKE]', $newfakebase, $newseeder);
-
-				file_put_contents($this->full_app_path."/database/seeds/".$singular."TableSeeder.php", $newseeder);
 			}
+			if (isset($this->singular_models[$table])) {
+				$singular = $this->singular_models[$table];
+			}
+			if (strpos($table, "_") > 0) {
+				// this is a pivot table
+				$pivot_table = $object;
+				$pivot_name = str_replace("_", " ", $object);
+				$pivot_name = str_replace(" ", "", ucwords($pivot_name));
+				$singular = $pivot_name;
+				$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/PivotTableSeeder.php");
+				$newseeder = str_replace('[PIVOTNAME]', $pivot_name, $baseseeder);
+				$newseeder = str_replace('[PIVOTTABLE]', $pivot_table, $newseeder);
+				$newfakebase = str_replace('[PIVOTNAME]', $singular, $fakebase_pivot_str);
+
+			} else {
+				$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
+				$newseeder = str_replace('[NAME]', $singular, $baseseeder);
+				$newfakebase = str_replace('[NAME]', $singular, $fakebase_str);
+			}
+			$newfakebase = str_replace('[COUNT]', $count, $newfakebase);
+			$newfakebase = str_replace('[FAKE_ARRAY]', $fakerstr, $newfakebase);
+			
+			$newseeder = str_replace('// [FAKE]', $newfakebase, $newseeder);
+
+			file_put_contents($this->full_app_path."/database/seeds/".$singular."TableSeeder.php", $newseeder);
+		
 		}
 
 	}
