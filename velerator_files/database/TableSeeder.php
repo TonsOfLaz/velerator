@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Seeder;
 use Illuminate\Database\Eloquent\Model;
-use Laracasts\TestDummy\Factory as TestDummy;
 use App\[NAME];
 
 class [NAME]TableSeeder extends Seeder 

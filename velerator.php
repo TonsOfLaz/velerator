@@ -105,7 +105,7 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added fake data seeder files.");
 		$this->createMasterSeederAndRun();
 		$this->gitAddAndCommitWithMessage("Added master seeder and ran all seeders.");
-		*/
+		
 		$this->createDemoPage();
 		$this->gitAddAndCommitWithMessage("Added Demo page.");
 
@@ -293,18 +293,17 @@ class Velerator {
 	public function createTESTFACTORIES() {
 		if (isset($this->project_config_array['TESTFACTORIES'])) {
 
-			$factory_file = "<?php
-
-";
+			$factory_file = file_get_contents($this->full_app_path."/database/factories/ModelFactory.php");
 
 			foreach ($this->schema as $table => $allfields) {
 
-				if (!isset($this->singular_models[$table])) {
+				if (!isset($this->singular_models[$table]) || $table == 'users') {
 					continue;
 				}
 				$model = $this->singular_models[$table];
-				$fakerstr = '$factory(\'App\\'.$model."', [
-	";
+				$fakerstr = '$factory->define(\'App\\'.$model."', function(".'$faker'.") {
+	return [
+		";
 
 				$fields_override_arr = [];
 				if (isset($project_config_array['TESTFACTORIES'][$table])) {
@@ -332,14 +331,14 @@ class Velerator {
 							$faker_gen = str_replace("*", "'factory:App\\", $faker_gen);
 							$faker_gen .= "'";
 							$fakerstr .= "'$faker_field' => $faker_gen,
-	";
+		";
 						} else if ($faker_gen[0] == "'") {
 							$fakerstr .= "'$faker_field' => $faker_gen,
-	";
+		";
 						} else {
 							$faker_gen = '$faker->'.$faker_gen;
 							$fakerstr .= "'$faker_field' => ".$faker_gen.",
-	";
+		";
 						}
 
 					} else {
@@ -347,15 +346,16 @@ class Velerator {
 						if (isset($this->foreigntables[$table][$faker_field])) {
 							// this is a reference to another object
 							$foreigntable = $this->foreigntables[$table][$faker_field];
-							$fakerstr .= "'$faker_field' => 'factory:App\\".$this->singular_models[$foreigntable]."',
-	";
+
+							$fakerstr .= "'$faker_field' => ".'$'."factory->create('App\\".$this->singular_models[$foreigntable]."')->id,
+		";
 						} else {
 
 							// Just fill in defaults as defined by naming convention
 							// If no default is found, fill in based on type (string, integer, etc)
 							$field_type = $this->schema[$table][$faker_field];
 							$fakerstr .= "'$faker_field' => ".'$faker->'.$this->getDefaultTestFactoryValues($faker_field, $field_type).",
-	";
+		";
 
 						}
 
@@ -365,13 +365,14 @@ class Velerator {
 					
 				}
 				$fakerstr .= "
-]);
+	];
+});
 
 ";
 				$factory_file .= $fakerstr;
 			}
-			mkdir($this->full_app_path."/tests/factories");
-			file_put_contents($this->full_app_path."/tests/factories/factories.php", $factory_file);
+			//mkdir($this->full_app_path."/tests/factories");
+			file_put_contents($this->full_app_path."/database/factories/ModelFactory.php", $factory_file);
 		}
 		
 
@@ -388,6 +389,9 @@ class Velerator {
 			'company_name' 	=> 'company',
 			'company'		=> 'company',
 			'name'			=> 'name',
+			'url'			=> 'url',
+			'ip'			=> 'ipv4',
+			'ip_address'	=> 'ipv4',
 			'email' 		=> 'safeEmail',
 			'address'		=> 'streetAddress',
 			'address2'		=> 'secondaryAddress',
@@ -474,48 +478,31 @@ class Velerator {
 
 	    return (substr($haystack, -$length) === $needle);
 	}
+
 	public function runSEEDFAKE() {
 		echo "Creating fake data seeders...\n";
 		
 		if (isset($this->project_config_array['SEEDFAKE'])) {
 
-			$fakebase_str = '';
+			$basefile = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
 
-			foreach ($this->project_config_array['SEEDFAKE'] as $table_and_count) {
+			$fakebase_str = 'factory('."'App\[NAME]', [COUNT])->create();
+		";
+
+			foreach ($this->project_config_array['SEEDFAKE'] as $table_and_count => $dud) {
 
 				$table_and_count_arr = explode(" ", $table_and_count, 2);
 				$table = trim($table_and_count_arr[0]);
 				$count = trim($table_and_count_arr[1]);
-
+				echo $table;
 				$model = $this->singular_models[$table];
-				
-			}
-			if (isset($this->singular_models[$table])) {
-				$singular = $this->singular_models[$table];
-			}
-			if (strpos($table, "_") > 0) {
-				// this is a pivot table
-				$pivot_table = $object;
-				$pivot_name = str_replace("_", " ", $object);
-				$pivot_name = str_replace(" ", "", ucwords($pivot_name));
-				$singular = $pivot_name;
-				$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/PivotTableSeeder.php");
-				$newseeder = str_replace('[PIVOTNAME]', $pivot_name, $baseseeder);
-				$newseeder = str_replace('[PIVOTTABLE]', $pivot_table, $newseeder);
-				$newfakebase = str_replace('[PIVOTNAME]', $singular, $fakebase_pivot_str);
-
-			} else {
-				$baseseeder = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
-				$newseeder = str_replace('[NAME]', $singular, $baseseeder);
-				$newfakebase = str_replace('[NAME]', $singular, $fakebase_str);
-			}
-			$newfakebase = str_replace('[COUNT]', $count, $newfakebase);
-			$newfakebase = str_replace('[FAKE_ARRAY]', $fakerstr, $newfakebase);
 			
-			$newseeder = str_replace('// [FAKE]', $newfakebase, $newseeder);
+				$newseeder = str_replace('// [FAKE]', $fakebase_str, $basefile);
+				$newseeder = str_replace('[NAME]', $model, $newseeder);
+				$newseeder = str_replace('[COUNT]', $count, $newseeder);
 
-			file_put_contents($this->full_app_path."/database/seeds/".$singular."TableSeeder.php", $newseeder);
-		
+				file_put_contents($this->full_app_path."/database/seeds/".$model."TableSeeder.php", $newseeder);
+			}
 		}
 
 	}
