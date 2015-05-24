@@ -344,7 +344,7 @@ class Velerator {
 					} else {
 
 						if (isset($this->foreigntables[$table][$faker_field])) {
-							// this is a reference to another object
+							// this is a reference to another object, still broken?
 							$foreigntable = $this->foreigntables[$table][$faker_field];
 
 							$fakerstr .= "'$faker_field' => ".'$'."factory->create('App\\".$this->singular_models[$foreigntable]."')->id,
