@@ -301,7 +301,11 @@ class Velerator {
 					continue;
 				}
 				$model = $this->singular_models[$table];
-				$fakerstr = '$factory->define(\'App\\'.$model."', function(".'$faker'.") {
+				$usefactory = "";
+				if (isset($this->foreigntables[$table])) {
+					$usefactory = "use (".'$factory'.") ";
+				}
+				$fakerstr = '$factory->define(\'App\\'.$model."', function (".'$faker'.") $usefactory{
 	return [
 		";
 
@@ -494,7 +498,7 @@ class Velerator {
 				$table_and_count_arr = explode(" ", $table_and_count, 2);
 				$table = trim($table_and_count_arr[0]);
 				$count = trim($table_and_count_arr[1]);
-				echo $table;
+				//echo $table;
 				$model = $this->singular_models[$table];
 			
 				$newseeder = str_replace('// [FAKE]', $fakebase_str, $basefile);
@@ -521,15 +525,7 @@ class Velerator {
 			foreach ($this->project_config_array['SEEDFAKE'] as $object_and_count => $fields) {
 				$obj_cnt_arr = explode(" ", $object_and_count);
 				$table = $obj_cnt_arr[0];
-				if (strpos($table, "_") > 0) {
-					// this is a pivot table
-					$pivot_table = $table;
-					$pivot_name = str_replace("_", " ", $table);
-					$pivot_name = str_replace(" ", "", ucwords($pivot_name));
-					$model = $pivot_name;
-				} else {
-					$model = $this->singular_models[$table];
-				}
+				$model = $this->singular_models[$table];
 				
 				$seeded_models[$model] = 1;
 			}
