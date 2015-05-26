@@ -16,5 +16,4 @@ class [NAME]TableSeeder extends Seeder
 
         // [FAKE]
     }
-} 
-// Faker reference: https://github.com/fzaninotto/Faker
+}

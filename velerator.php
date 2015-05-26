@@ -99,8 +99,8 @@ class Velerator {
 		shell_exec("php artisan migrate");
 		$this->createTESTFACTORIES();
 		$this->gitAddAndCommitWithMessage("Added TESTFACTORIES for fake database data.");
-		//$this->runSEEDREAL();
-		//$this->gitAddAndCommitWithMessage("Added real data seeder files.");
+		$this->runSEEDREAL();
+		$this->gitAddAndCommitWithMessage("Added real data seeder files.");
 		$this->runSEEDFAKE();
 		$this->gitAddAndCommitWithMessage("Added fake data seeder files.");
 		$this->createMasterSeederAndRun();
@@ -270,7 +270,7 @@ class Velerator {
 		
 				foreach ($inserts as $row) {
 					$realseed_str .= "
-		$model::create([";
+		factory('App\\$model')->create([";
 					$data_arr = array_map('trim', explode('|', $row));
 					foreach ($fields_arr as $fieldkey => $fieldname) {
 						$fielddata = $data_arr[$fieldkey];
@@ -310,8 +310,9 @@ class Velerator {
 		";
 
 				$fields_override_arr = [];
-				if (isset($project_config_array['TESTFACTORIES'][$table])) {
-					foreach ($project_config_array['TESTFACTORIES'][$table] as $field_and_fakergen) {
+				if (isset($this->project_config_array['TESTFACTORIES'][$table])) {
+
+					foreach ($this->project_config_array['TESTFACTORIES'][$table] as $field_and_fakergen) {
 						$fakergen_arr = explode("|", $field_and_fakergen, 2);
 						$faker_field = trim($fakergen_arr[0]);
 						$faker_gen = trim($fakergen_arr[1]);
@@ -319,7 +320,7 @@ class Velerator {
 						$fields_override_arr[$faker_field] = $faker_gen;
 					}
 				}
-
+				//print_r($fields_override_arr);
 				//print_r($this->schema);
 				//print_r($this->foreigntables);
 
@@ -487,12 +488,10 @@ class Velerator {
 		echo "Creating fake data seeders...\n";
 		
 		if (isset($this->project_config_array['SEEDFAKE'])) {
-
-			$basefile = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
-
+			
 			$fakebase_str = 'factory('."'App\[NAME]', [COUNT])->create();
 		";
-
+			
 			foreach ($this->project_config_array['SEEDFAKE'] as $table_and_count => $dud) {
 
 				$table_and_count_arr = explode(" ", $table_and_count, 2);
@@ -500,12 +499,19 @@ class Velerator {
 				$count = trim($table_and_count_arr[1]);
 				//echo $table;
 				$model = $this->singular_models[$table];
+
+				$seederpath = $this->full_app_path."/database/seeds/".$model."TableSeeder.php";
+				if (file_exists($seederpath)) {
+					$basefile = file_get_contents($seederpath);
+				} else {
+					$basefile = file_get_contents($this->velerator_path."/velerator_files/database/TableSeeder.php");
+				}
 			
 				$newseeder = str_replace('// [FAKE]', $fakebase_str, $basefile);
 				$newseeder = str_replace('[NAME]', $model, $newseeder);
 				$newseeder = str_replace('[COUNT]', $count, $newseeder);
 
-				file_put_contents($this->full_app_path."/database/seeds/".$model."TableSeeder.php", $newseeder);
+				file_put_contents($seederpath, $newseeder);
 			}
 		}
 
