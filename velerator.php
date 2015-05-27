@@ -70,6 +70,8 @@ class Velerator {
 			$this->velerateNAVIGATION();
 			$this->gitAddAndCommitWithMessage("Added NAVIGATION.");
 		}
+		$this->velerateENV();
+		$this->gitAddAndCommitWithMessage("Added ENV file.");
 		$this->velerateDBMODELS();
 		$this->gitAddAndCommitWithMessage("Added DBMODELS and routes.");
 		$this->velerateLINKTEXT();
@@ -152,6 +154,7 @@ class Velerator {
 		$this->velerator_path = getcwd();
 		$this->full_app_path = $this->velerator_path."/".$this->project_name;
 		
+		$this->tableflags = [];
 		$this->listqueries = [];
 		$this->nestedroutes = [];
 		$this->form_models_array = [];
@@ -215,6 +218,48 @@ class Velerator {
 		$newappview = str_replace($replacestr_js, $new_js, $newappview);
 		file_put_contents($this->full_app_path."/resources/views/app.blade.php", $newappview);
 
+	}
+
+	public function velerateENV() {
+		if (isset($this->project_config_array['ENV'])) {
+			$env_example = file_get_contents($this->full_app_path."/.env.example");
+			$existing_array = explode("\n", $env_example);
+
+			$temp_array = [];
+			$final_array = [];
+			foreach ($this->project_config_array['ENV'] as $setting => $empty) {
+				$setting_arr = explode("=", $setting);
+				$field = trim($setting_arr[0]);
+				$value = trim($setting_arr[1]);
+				$temp_array[$field] = $value;
+			}
+
+			foreach ($existing_array as $key => $existing_setting) {
+				// Replace the existing fields
+				if ($existing_setting) {
+					$setting_arr = explode("=", $existing_setting);
+					$field = trim($setting_arr[0]);
+					$value = trim($setting_arr[1]);
+					if (isset($temp_array[$field])) {
+						$value = $temp_array[$field];
+						unset($temp_array[$field]);
+					}
+					$final_array[] = "$field=$value";
+				} else {
+					$final_array[] = "";
+				}
+			}
+			$final_array[] = "";
+			foreach ($temp_array as $field => $value) {
+				$final_array[] = "$field=$value";
+			}
+			
+			$final_env = "";
+			foreach ($final_array as $key => $value) {
+				$final_env .= $value."\n";
+			}
+			file_put_contents($this->full_app_path."/.env", $final_env);
+		}
 	}
 	public function velerateNAVIGATION() {
 		// Any new paths you add here should go into ROUTES as well
@@ -306,8 +351,7 @@ class Velerator {
 					$usefactory = "use (".'$factory'.") ";
 				}
 				$fakerstr = '$factory->define(\'App\\'.$model."', function (".'$faker'.") $usefactory{
-	return [
-		";
+	return [";
 
 				$fields_override_arr = [];
 				if (isset($this->project_config_array['TESTFACTORIES'][$table])) {
@@ -331,19 +375,13 @@ class Velerator {
 					if (isset($fields_override_arr[$faker_field])) {
 						// The user has defined a value in the testfactories page
 						$faker_gen = $fields_override_arr[$faker_field];
-						if ($faker_gen[0] == "*") {
-							// this is an object
-							$faker_gen = str_replace("*", "'factory:App\\", $faker_gen);
-							$faker_gen .= "'";
-							$fakerstr .= "'$faker_field' => $faker_gen,
-		";
-						} else if ($faker_gen[0] == "'") {
-							$fakerstr .= "'$faker_field' => $faker_gen,
-		";
+						if ($faker_gen[0] == "'") {
+							$fakerstr .= "
+		'$faker_field' => $faker_gen,";
 						} else {
 							$faker_gen = '$faker->'.$faker_gen;
-							$fakerstr .= "'$faker_field' => ".$faker_gen.",
-		";
+							$fakerstr .= "
+		'$faker_field' => ".$faker_gen.",";
 						}
 
 					} else {
@@ -352,15 +390,15 @@ class Velerator {
 							// this is a reference to another object, still broken?
 							$foreigntable = $this->foreigntables[$table][$faker_field];
 
-							$fakerstr .= "'$faker_field' => ".'$'."factory->create('App\\".$this->singular_models[$foreigntable]."')->id,
-		";
+							$fakerstr .= "
+		'$faker_field' => ".'$'."factory->create('App\\".$this->singular_models[$foreigntable]."')->id,";
 						} else {
 
 							// Just fill in defaults as defined by naming convention
 							// If no default is found, fill in based on type (string, integer, etc)
 							$field_type = $this->schema[$table][$faker_field];
-							$fakerstr .= "'$faker_field' => ".'$faker->'.$this->getDefaultTestFactoryValues($faker_field, $field_type).",
-		";
+							$fakerstr .= "
+		'$faker_field' => ".'$faker->'.$this->getDefaultTestFactoryValues($faker_field, $field_type).",";
 
 						}
 
@@ -417,6 +455,7 @@ class Velerator {
 			'note'			=> 'realText()',
 			'date'			=> 'dateTime()',
 			'year'			=> 'year()',
+			'image'			=> 'imageURL()',
 		];
 		if (isset($end_match_array[$field_name])) {
 			// Exact match
@@ -538,6 +577,10 @@ class Velerator {
 		}
 		if (count($seeded_models) > 1) {
 			foreach ($seeded_models as $model => $dud) {
+				$table_seeder_calls .= "App\\".$model."::truncate();
+		";
+			}
+			foreach ($seeded_models as $model => $dud) {
 				$table_seeder_calls .= '$this->call('."'".$model."TableSeeder');
 		";
 			}
@@ -612,66 +655,86 @@ class Velerator {
 		
 		// Schema
 
-		foreach ($this->project_config_array['DBMODELS'] as $object_and_singular => $fields_arr) {
+		foreach ($this->project_config_array['DBMODELS'] as $object_and_singular_and_flags => $fields_arr) {
+
+			$flags = "";
+			$objectflag_arr = explode("|", $object_and_singular_and_flags);
+			if (isset($objectflag_arr[1])) {
+				$object_and_singular = trim($objectflag_arr[0]);
+				$flags = trim($objectflag_arr[1]);
+			} else {
+				$object_and_singular = trim($objectflag_arr[0]);
+			}
+
 			$obj_sin_arr = explode(" ", $object_and_singular);
-			$object = $obj_sin_arr[0];
-			$singular = $obj_sin_arr[1];
+			$object = trim($obj_sin_arr[0]);
+			$singular = trim($obj_sin_arr[1]);
 			$this->singular_models[$object] = $singular;
 			$fillable_array[$singular] = "";
 			// Create Migration
-			shell_exec("php artisan make:migration --create=$object create_".$object."_table");
-			
-			$allfields_arr = [];
-			$once = 1;
-			foreach ($fields_arr as $field_str) {
-				$fieldtype = "string";  // Default is string if blank
-				$fieldfunction = "";
-				$secondarytable = "";
-				$thisfield_arr = explode(" ", $field_str);
+			if ($flags) {
+				$flag_arr = explode(" ", $flags);
+				foreach ($flag_arr as $flag) {
+					$this->tableflags[$object][$flag] = 1;
+				}
+			}
 
-				$fieldname = $thisfield_arr[0];
-				if (substr($fieldname,0,1) == '*') {
-					// Ones with * need their own tables
-					continue;
-				} else {
-					if ($once) {
-						$fillable_array[$singular] .= "'$fieldname'";
-						$once = 0;
+			if (!isset($this->tableflags[$object]['model-only'])) {
+
+				shell_exec("php artisan make:migration --create=$object create_".$object."_table");
+				
+				$allfields_arr = [];
+				$once = 1;
+				foreach ($fields_arr as $field_str) {
+					$fieldtype = "string";  // Default is string if blank
+					$fieldfunction = "";
+					$secondarytable = "";
+					$thisfield_arr = explode(" ", $field_str);
+
+					$fieldname = $thisfield_arr[0];
+					if (substr($fieldname,0,1) == '*') {
+						// Ones with * need their own tables
+						continue;
 					} else {
-						$fillable_array[$singular] .= ",'$fieldname'";
-					}
-					
-					if (strpos($fieldname, "_id") > 0) {
-						$fieldtype = "integer";
-						if (count($thisfield_arr) == 2) {
-							$secondarytable = $thisfield_arr[1];
+						if ($once) {
+							$fillable_array[$singular] .= "'$fieldname'";
+							$once = 0;
+						} else {
+							$fillable_array[$singular] .= ",'$fieldname'";
 						}
-						if (count($thisfield_arr) == 3) {
-							$secondarytable = $thisfield_arr[1];
+						
+						if (strpos($fieldname, "_id") > 0) {
+							$fieldtype = "integer";
+							if (count($thisfield_arr) == 2) {
+								$secondarytable = $thisfield_arr[1];
+							}
+							if (count($thisfield_arr) == 3) {
+								$secondarytable = $thisfield_arr[1];
+								$fieldfunction = $thisfield_arr[2];
+							}
+						} else if (strpos($fieldname, "_date") > 0) {
+							$fieldtype = "date";
+						} else if (count($thisfield_arr) == 2) {
+							$fieldtype = $thisfield_arr[1];
+						} else if (count($thisfield_arr) == 3) {
+							$fieldtype = $thisfield_arr[1];
 							$fieldfunction = $thisfield_arr[2];
 						}
-					} else if (strpos($fieldname, "_date") > 0) {
-						$fieldtype = "date";
-					} else if (count($thisfield_arr) == 2) {
-						$fieldtype = $thisfield_arr[1];
-					} else if (count($thisfield_arr) == 3) {
-						$fieldtype = $thisfield_arr[1];
-						$fieldfunction = $thisfield_arr[2];
+						if (!$fieldfunction) {
+							$fieldfunction = "nullable";
+						}
+						$tempfield_arr = [];
+						$tempfield_arr['name'] = $fieldname;
+						$tempfield_arr['type'] = $fieldtype;
+						$tempfield_arr['function'] = $fieldfunction;
+						$tempfield_arr['secondary'] = $secondarytable;
+						$allfields_arr[] = $tempfield_arr;
 					}
-					if (!$fieldfunction) {
-						$fieldfunction = "nullable";
-					}
-					$tempfield_arr = [];
-					$tempfield_arr['name'] = $fieldname;
-					$tempfield_arr['type'] = $fieldtype;
-					$tempfield_arr['function'] = $fieldfunction;
-					$tempfield_arr['secondary'] = $secondarytable;
-					$allfields_arr[] = $tempfield_arr;
+					
 				}
-				
+				// Update Schema file
+				$this->addFieldArrayToCreateSchema($object, $allfields_arr);
 			}
-			// Update Schema file
-			$this->addFieldArrayToCreateSchema($object, $allfields_arr);
 		}
 		// ===================================> CREATING MODELS
 
@@ -950,6 +1013,9 @@ class Velerator {
 	public function addCreateAndEditForm($table, $model) {
 		//print_r($this->form_models_array);
 		//exit();
+		if (isset($this->tableflags[$table]['model-only'])) {
+			return;
+		}
 		$newcontroller = file_get_contents($this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php");
 
 		// First make sure the controllers load the right data
@@ -1090,60 +1156,62 @@ $addmodel_str";
 		$viewpath = $table.'/form';
 		$formfields = "";
 		//print_r($this->schema);
-		foreach ($this->schema[$table] as $fieldname => $fieldtype) {
-			$inputtype = "";
-			$formfields .= "<div class='row'>
+		if (isset($this->schema[$table])) {
+			foreach ($this->schema[$table] as $fieldname => $fieldtype) {
+				$inputtype = "";
+				$formfields .= "<div class='row'>
 	<div class='small-12 columns'>";
-			switch($fieldtype) {
-				case 'string':
-					$formfields .= "
+				switch($fieldtype) {
+					case 'string':
+						$formfields .= "
 		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
 		{!! Form::text('$fieldname') !!}
 ";
-					break;
-				case 'text':
-					$formfields .= "
+						break;
+					case 'text':
+						$formfields .= "
 		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
 		{!! Form::textarea('$fieldname') !!}
 ";
-					break;
-				case 'boolean':
-					$formfields .= "
+						break;
+					case 'boolean':
+						$formfields .= "
 		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
 		{!! Form::checkbox('$fieldname') !!}
 ";
-					break;
-				case 'unsignedInteger':
-					if (isset($this->form_models_array[$model]['belongsto'][$fieldname])) {
-						$related_model = $this->form_models_array[$model]['belongsto'][$fieldname];
-						$related_table = $this->getTableFromModelName($related_model);
-						$formfields .= "
+						break;
+					case 'unsignedInteger':
+						if (isset($this->form_models_array[$model]['belongsto'][$fieldname])) {
+							$related_model = $this->form_models_array[$model]['belongsto'][$fieldname];
+							$related_table = $this->getTableFromModelName($related_model);
+							$formfields .= "
 		{!! Form::label('$fieldname', '$related_model') !!}
 		{!! Form::select('$fieldname', $".$related_table.", null, []) !!}
 ";
-					} else if (isset($this->form_models_array[$model]['hasone'][$fieldname])) {
-						$related_model = $this->form_models_array[$model]['hasone'][$fieldname];
-						$related_table = $this->getTableFromModelName($related_model);
-						$formfields .= "
+						} else if (isset($this->form_models_array[$model]['hasone'][$fieldname])) {
+							$related_model = $this->form_models_array[$model]['hasone'][$fieldname];
+							$related_table = $this->getTableFromModelName($related_model);
+							$formfields .= "
 		{!! Form::label('$fieldname', '$related_model') !!}
 		{!! Form::select('$fieldname', $".$related_table.", null, []) !!}
 ";
-					} else {
-						$formfields .= "
+						} else {
+							$formfields .= "
 		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
 		{!! Form::text('$fieldname') !!}
 ";
-					}
-					
-					break;
-				default:
-					$inputtype = '';
-			}
-			$formfields .= "</div>
+						}
+						
+						break;
+					default:
+						$inputtype = '';
+				}
+				$formfields .= "</div>
 </div>";
-			
-			
-		}
+				
+				
+			}
+	}
 
 		// Then the many to many, since they are not in the schema
 		if (isset($this->form_models_array[$model]['belongstomany'])) {
@@ -1359,6 +1427,9 @@ $tablename $function_name
 		$routestr = "";
 		$controllerstr = "";
 		foreach ($this->singular_models as $table => $singular) {
+			if (isset($this->tableflags[$table]['model-only'])) {
+				continue;
+			}
 			$singular_lower = strtolower($singular);
 			$capstable = ucfirst($table);
 			shell_exec("php artisan make:controller ".$capstable."Controller");
@@ -1382,6 +1453,7 @@ use App\\'.$singular.";", $thiscontroller);
 			$this->demopage_array['ROUTES']['POST'][$singular][$table."/{id}/store"] = "Save a new $singular";
 			$this->demopage_array['ROUTES']['POST'][$singular][$table."/{id}/update"] = "Update an existing $singular";
 			$this->demopage_array['ROUTES']['POST'][$singular][$table."/{id}/destroy"] = "Delete an existing $singular";
+
 
 			// Add resource functions
 			if ($this->is_api) {
@@ -1438,6 +1510,9 @@ use App\\'.$singular.";", $thiscontroller);
 			foreach ($belongsto_arr as $related_model => $dud) {
 				$routes = [];
 				$table = $this->getTableFromModelName($model);
+				if (isset($this->tableflags[$table]['model-only'])) {
+					continue;
+				}
 				$related_table = $this->getTableFromModelName($related_model);
 				$capstable = ucwords($table);
 				
@@ -1497,6 +1572,9 @@ use App\\'.$singular.";", $thiscontroller);
 		//print_r($modellinks);
 
 		foreach ($this->singular_models as $table => $model) {
+			if (isset($this->tableflags[$table]['model-only'])) {
+				continue;
+			}
 			$links_html = "";
 			if (isset($modellinks[$model])) {
 				//$links_html .= $modellinks[$model][$table]['function'];
@@ -1546,6 +1624,9 @@ use App\\'.$singular.";", $thiscontroller);
 		}
 		//print_r($modeldetails);
 		foreach ($this->singular_models as $table => $model) {
+			if (isset($this->tableflags[$table]['model-only'])) {
+				continue;
+			}
 			$singular_lower = strtolower($model);
 			$show_code = "";
 			if ($this->is_api) {
@@ -1635,6 +1716,9 @@ use App\\'.$singular.";", $thiscontroller);
 	public function velerateROUTEVIEWS() {
 		// The default views for the model resources
 		foreach ($this->singular_models as $table => $singular) {
+			if (isset($this->tableflags[$table]['model-only'])) {
+				continue;
+			}
 			mkdir($this->full_app_path."/resources/views/$table");
 			$mainview = $this->getModelViewMain($singular);
 			file_put_contents($this->full_app_path."/resources/views/".$table."/show.blade.php", $mainview);
@@ -1839,6 +1923,9 @@ $modelstr", $commandfile);
 		// Adds a parameter query for any list
 		// based on the fields defined in DBMODELS
 		foreach ($this->singular_models as $table => $model) {
+			if (isset($this->tableflags[$table]['model-only'])) {
+				continue;
+			}
 			$uppercasetable = ucwords($table);
 			$controllerpath = $this->full_app_path."/app/Http/Controllers/".$uppercasetable."Controller.php";
 			$newcontroller = file_get_contents($controllerpath);
