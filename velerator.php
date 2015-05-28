@@ -221,11 +221,13 @@ class Velerator {
 
 	}
 	public function addWYSIWYGs() {
-		$appview = file_get_contents($this->full_app_path."/resources/views/app.blade.php");
-		$replace = '<script src="/js/foundation.min.js"></script>';
-		$newappview = str_replace($replace, $replace.'
-		<script src="js/vendor/ckeditor/ckeditor.js"></script>', $appview);
-		file_put_contents($this->full_app_path."/resources/views/app.blade.php", $newappview);
+		// It does this now by default in velerator_files/views/app.blade.php
+		//
+		// $appview = file_get_contents($this->full_app_path."/resources/views/app.blade.php");
+		// $replace = '<script src="/js/foundation.min.js"></script>';
+		// $newappview = str_replace($replace, $replace.'
+		// <script src="js/vendor/ckeditor/ckeditor.js"></script>', $appview);
+		// file_put_contents($this->full_app_path."/resources/views/app.blade.php", $newappview);
 	}
 	public function velerateENV() {
 		if (isset($this->project_config_array['ENV'])) {
