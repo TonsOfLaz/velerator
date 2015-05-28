@@ -16,10 +16,12 @@
 		@yield('content')
 		<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 		<script src="/js/vendor/modernizr.js"></script>
-		<script src="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.0-rc.2/js/select2.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.0-rc.2/js/select2.min.js"></script>	
+		<script src="//cdn.ckeditor.com/4.4.7/standard/ckeditor.js"></script>
 		[JS]
 		<script>
 			$(document).foundation();
+			CKEDITOR.replace();
 		</script>
 	 
 		@yield('footer')

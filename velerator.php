@@ -69,6 +69,8 @@ class Velerator {
 			$this->gitAddAndCommitWithMessage("Added Foundation CSS.");
 			$this->velerateNAVIGATION();
 			$this->gitAddAndCommitWithMessage("Added NAVIGATION.");
+			$this->addWYSIWYGs();
+			$this->gitAddAndCommitWithMessage("Added CKEditor for basic WYSIWYG on textareas.");
 		}
 		$this->velerateENV();
 		$this->gitAddAndCommitWithMessage("Added ENV file.");
@@ -107,7 +109,6 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added fake data seeder files.");
 		$this->createMasterSeederAndRun();
 		$this->gitAddAndCommitWithMessage("Added master seeder and ran all seeders.");
-		
 		$this->createDemoPage();
 		$this->gitAddAndCommitWithMessage("Added Demo page.");
 
@@ -219,7 +220,13 @@ class Velerator {
 		file_put_contents($this->full_app_path."/resources/views/app.blade.php", $newappview);
 
 	}
-
+	public function addWYSIWYGs() {
+		$appview = file_get_contents($this->full_app_path."/resources/views/app.blade.php");
+		$replace = '<script src="/js/foundation.min.js"></script>';
+		$newappview = str_replace($replace, $replace.'
+		<script src="js/vendor/ckeditor/ckeditor.js"></script>', $appview);
+		file_put_contents($this->full_app_path."/resources/views/app.blade.php", $newappview);
+	}
 	public function velerateENV() {
 		if (isset($this->project_config_array['ENV'])) {
 			$env_example = file_get_contents($this->full_app_path."/.env.example");
@@ -1171,7 +1178,7 @@ $addmodel_str";
 					case 'text':
 						$formfields .= "
 		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
-		{!! Form::textarea('$fieldname') !!}
+		{!! Form::textarea('$fieldname', \$value=null, ['class' => 'ckeditor']) !!}
 ";
 						break;
 					case 'boolean':
