@@ -69,13 +69,15 @@ class Velerator {
 			$this->gitAddAndCommitWithMessage("Added Foundation CSS.");
 			$this->velerateNAVIGATION();
 			$this->gitAddAndCommitWithMessage("Added NAVIGATION.");
-			$this->addWYSIWYGs();
-			$this->gitAddAndCommitWithMessage("Added CKEditor for basic WYSIWYG on textareas.");
+			//$this->addWYSIWYGs();
+			//$this->gitAddAndCommitWithMessage("Added CKEditor for basic WYSIWYG on textareas.");
 		}
 		$this->velerateENV();
 		$this->gitAddAndCommitWithMessage("Added ENV file.");
 		$this->velerateDBMODELS();
 		$this->gitAddAndCommitWithMessage("Added DBMODELS and routes.");
+		$this->addFileUploadFolders();
+		$this->gitAddAndCommitWithMessage("Added File Upload folders.");
 		$this->velerateLINKTEXT();
 		$this->gitAddAndCommitWithMessage("Added LINKTEXT to models.");
 		$this->velerateRELATIONSHIPS();
@@ -156,6 +158,7 @@ class Velerator {
 		$this->full_app_path = $this->velerator_path."/".$this->project_name;
 		
 		$this->tableflags = [];
+		$this->file_inputs = [];
 		$this->listqueries = [];
 		$this->nestedroutes = [];
 		$this->form_models_array = [];
@@ -701,50 +704,53 @@ class Velerator {
 					$thisfield_arr = explode(" ", $field_str);
 
 					$fieldname = $thisfield_arr[0];
-					if (substr($fieldname,0,1) == '*') {
-						// Ones with * need their own tables
-						continue;
+					
+					if ($once) {
+						$fillable_array[$singular] .= "'$fieldname'";
+						$once = 0;
 					} else {
-						if ($once) {
-							$fillable_array[$singular] .= "'$fieldname'";
-							$once = 0;
-						} else {
-							$fillable_array[$singular] .= ",'$fieldname'";
+						$fillable_array[$singular] .= ",'$fieldname'";
+					}
+					
+					if (strpos($fieldname, "_id") > 0) {
+						$fieldtype = "integer";
+						if (count($thisfield_arr) == 2) {
+							$secondarytable = $thisfield_arr[1];
 						}
-						
-						if (strpos($fieldname, "_id") > 0) {
-							$fieldtype = "integer";
-							if (count($thisfield_arr) == 2) {
-								$secondarytable = $thisfield_arr[1];
-							}
-							if (count($thisfield_arr) == 3) {
-								$secondarytable = $thisfield_arr[1];
-								$fieldfunction = $thisfield_arr[2];
-							}
-						} else if (strpos($fieldname, "_date") > 0) {
-							$fieldtype = "date";
-						} else if (count($thisfield_arr) == 2) {
-							$fieldtype = $thisfield_arr[1];
-						} else if (count($thisfield_arr) == 3) {
-							$fieldtype = $thisfield_arr[1];
+						if (count($thisfield_arr) == 3) {
+							$secondarytable = $thisfield_arr[1];
 							$fieldfunction = $thisfield_arr[2];
 						}
-						if (!$fieldfunction) {
-							$fieldfunction = "nullable";
-						}
-						$tempfield_arr = [];
-						$tempfield_arr['name'] = $fieldname;
-						$tempfield_arr['type'] = $fieldtype;
-						$tempfield_arr['function'] = $fieldfunction;
-						$tempfield_arr['secondary'] = $secondarytable;
-						$allfields_arr[] = $tempfield_arr;
+					} else if (strpos($fieldname, "_date") > 0) {
+						$fieldtype = "date";
+					} else if (count($thisfield_arr) == 2) {
+						$fieldtype = $thisfield_arr[1];
+					} else if (count($thisfield_arr) == 3) {
+						$fieldtype = $thisfield_arr[1];
+						$fieldfunction = $thisfield_arr[2];
 					}
+					if (!$fieldfunction) {
+						$fieldfunction = "nullable";
+					}
+					if ($fieldtype == 'file') {
+						$fieldtype = "string";
+						$this->file_inputs[$object][$fieldname] = $fieldfunction;
+						$fieldfunction = "";
+					}
+					$tempfield_arr = [];
+					$tempfield_arr['name'] = $fieldname;
+					$tempfield_arr['type'] = $fieldtype;
+					$tempfield_arr['function'] = $fieldfunction;
+					$tempfield_arr['secondary'] = $secondarytable;
+					$allfields_arr[] = $tempfield_arr;
+				
 					
 				}
 				// Update Schema file
 				$this->addFieldArrayToCreateSchema($object, $allfields_arr);
 			}
 		}
+
 		// ===================================> CREATING MODELS
 
 		foreach ($this->singular_models as $object => $singular) {
@@ -756,6 +762,15 @@ class Velerator {
 				$newmodel = str_replace("[FILLABLE_ARRAY]", "[".$fillable_array[$singular]."]", $newmodel);
 				$newmodel = str_replace("[HIDDEN_ARRAY]", '[]', $newmodel);
 				file_put_contents($this->full_app_path."/app/".$singular.".php", $newmodel);
+			}
+		}
+	}
+	function addFileUploadFolders() {
+		foreach ($this->file_inputs as $table => $field_arr) {
+			foreach ($field_arr as $fieldname => $filepath) {
+				if (!file_exists($filepath)) {
+					shell_exec("mkdir -p ".$this->full_app_path."/".$filepath);
+				}
 			}
 		}
 	}
@@ -828,6 +843,9 @@ class Velerator {
 				->references('id')->on('$secondarytable');
 	      	";
 	      		$this->foreigntables[$edit_table][$name] = $secondarytable;
+			}
+			if (isset($this->file_inputs[$edit_table][$name])) {
+				$type = "file";
 			}
 			$this->schema[$edit_table][$name] = $type;
 
@@ -1175,6 +1193,12 @@ $addmodel_str";
 						$formfields .= "
 		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
 		{!! Form::text('$fieldname') !!}
+";
+						break;
+					case 'file':
+						$formfields .= "
+		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
+		{!! Form::file('$fieldname') !!}
 ";
 						break;
 					case 'text':
