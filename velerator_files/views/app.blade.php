@@ -17,10 +17,18 @@
 		<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
 		<script src="/js/vendor/modernizr.js"></script>
 		<script src="//cdnjs.cloudflare.com/ajax/libs/select2/4.0.0-rc.2/js/select2.min.js"></script>	
-		<script src="//cdn.ckeditor.com/4.4.7/standard/ckeditor.js"></script>
+		<script src="//cdn.ckeditor.com/4.4.7/full-all/ckeditor.js"></script>
 		[JS]
 		<script>
 			$(document).foundation();
+			CKEDITOR.config.toolbarGroups = [
+			    { name: 'basicstyles', groups: [ 'basicstyles', 'cleanup' ] },
+			    { name: 'paragraph',   groups: [ 'list', 'indent', 'blocks' ] },
+			    { name: 'styles' },
+			    { name: 'colors' },
+			    { name: 'about' }
+			];
+			CKEDITOR.config.skin = 'moono';
 			CKEDITOR.replace();
 		</script>
 	 

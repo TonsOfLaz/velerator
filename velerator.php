@@ -773,14 +773,14 @@ class Velerator {
 			$files_str = "";
 			foreach ($field_arr as $fieldname => $filepath) {
 				if (!file_exists($filepath)) {
-					shell_exec("mkdir -p ".$this->full_app_path."/".$filepath);
+					shell_exec("mkdir -p ".$this->full_app_path."/public".$filepath);
 				}
 
 				$files_str .= '
 		if ($file = $request->file('."'$fieldname'".')) {
             $name = $file->getClientOriginalName();
             $file->move(public_path().'."'/$filepath/'".', $name);
-            $input['."'$fieldname'".'] = '."'$filepath/'".'.$name;
+            $input['."'$fieldname'".'] = '."'/$filepath/'".'.$name;
         }';
 			}
 			$replace_str = '$input = $request->all();';
@@ -1216,14 +1216,14 @@ $addmodel_str";
 						break;
 					case 'file':
 						$formfields .= "
+		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
 		<table width=\"100%\">
 			<tr>
 				<td>
 					@if (isset($".$singular_lower."))
 						<img style=\"max-width:300px;\" src='{{ $".$singular_lower."->$fieldname }}' />
 					@endif
-				</td><td>
-					{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
+				</td><td>			
 					{!! Form::file('$fieldname') !!}
 				</td>
 			</tr>
