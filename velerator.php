@@ -88,10 +88,10 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added custom LISTQUERIES.");
 		$this->velerateROUTECONTROLLERS();
 		$this->gitAddAndCommitWithMessage("Added Model Resource routes and controllers.");
-		$this->addFileUploads();
-		$this->gitAddAndCommitWithMessage("Added File Uploads.");
 		$this->velerateROUTEVIEWS();
 		$this->gitAddAndCommitWithMessage("Added Model default Route views.");
+		$this->addFileUploads();
+		$this->gitAddAndCommitWithMessage("Added File Uploads.");
 		$this->addModelLinks();
 		$this->gitAddAndCommitWithMessage("Added Model Links.");
 		$this->addModelDetails();
@@ -786,6 +786,11 @@ class Velerator {
 			$replace_str = '$input = $request->all();';
 			$newcontroller = str_replace($replace_str, $replace_str.$files_str, $controllerfile);
 			file_put_contents($controllerpath, $newcontroller);
+
+			$viewpath = $this->full_app_path."/resources/views/".$table."/form.blade.php";
+			$viewfile = file_get_contents($viewpath);
+			$newview = str_replace("[FILE_PATH]", '', $viewfile);
+			file_put_contents($viewpath, $newview);
 		}
 	}
 	function velerateLINKTEXT() {
@@ -1211,8 +1216,18 @@ $addmodel_str";
 						break;
 					case 'file':
 						$formfields .= "
-		{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
-		{!! Form::file('$fieldname') !!}
+		<table width=\"100%\">
+			<tr>
+				<td>
+					@if (isset($".$singular_lower."))
+						<img style=\"max-width:300px;\" src='{{ $".$singular_lower."->$fieldname }}' />
+					@endif
+				</td><td>
+					{!! Form::label('$fieldname', '".ucwords($fieldname)."') !!}
+					{!! Form::file('$fieldname') !!}
+				</td>
+			</tr>
+		</table>
 ";
 						break;
 					case 'text':
