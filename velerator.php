@@ -1204,6 +1204,9 @@ $addmodel_str";
 		//print_r($this->schema);
 		if (isset($this->schema[$table])) {
 			foreach ($this->schema[$table] as $fieldname => $fieldtype) {
+				if ($fieldname == 'user_id') {
+					continue;
+				}
 				$inputtype = "";
 				$formfields .= "<div class='row'>
 	<div class='small-12 columns'>";
