@@ -10,7 +10,7 @@ Add a New [MODEL]
 			<h1>Add a new [MODEL]</h1>
 		</div>
 	</div>
-	{!! Form::open(['url' => '[TABLE]']) !!}
+	{!! Form::open(['url' => '[TABLE]', 'files' => [FILES_FLAG]]) !!}
 	@include('[TABLE].form', ['submit_text' => 'Add New [MODEL]'])
 	{!! Form::close() !!}
 		</div>

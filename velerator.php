@@ -76,8 +76,6 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added ENV file.");
 		$this->velerateDBMODELS();
 		$this->gitAddAndCommitWithMessage("Added DBMODELS and routes.");
-		$this->addFileUploadFolders();
-		$this->gitAddAndCommitWithMessage("Added File Upload folders.");
 		$this->velerateLINKTEXT();
 		$this->gitAddAndCommitWithMessage("Added LINKTEXT to models.");
 		$this->velerateRELATIONSHIPS();
@@ -90,6 +88,8 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added custom LISTQUERIES.");
 		$this->velerateROUTECONTROLLERS();
 		$this->gitAddAndCommitWithMessage("Added Model Resource routes and controllers.");
+		$this->addFileUploads();
+		$this->gitAddAndCommitWithMessage("Added File Uploads.");
 		$this->velerateROUTEVIEWS();
 		$this->gitAddAndCommitWithMessage("Added Model default Route views.");
 		$this->addModelLinks();
@@ -765,13 +765,27 @@ class Velerator {
 			}
 		}
 	}
-	function addFileUploadFolders() {
+	function addFileUploads() {
 		foreach ($this->file_inputs as $table => $field_arr) {
+			$controllerpath = $this->full_app_path."/app/Http/Controllers/".ucwords($table)."Controller.php";
+			$controllerfile = file_get_contents($controllerpath);
+
+			$files_str = "";
 			foreach ($field_arr as $fieldname => $filepath) {
 				if (!file_exists($filepath)) {
 					shell_exec("mkdir -p ".$this->full_app_path."/".$filepath);
 				}
+
+				$files_str .= '
+		if ($file = $request->file('."'$fieldname'".')) {
+            $name = $file->getClientOriginalName();
+            $file->move(public_path().'."'/$filepath/'".', $name);
+            $input['."'$fieldname'".'] = '."'$filepath/'".'.$name;
+        }';
 			}
+			$replace_str = '$input = $request->all();';
+			$newcontroller = str_replace($replace_str, $replace_str.$files_str, $controllerfile);
+			file_put_contents($controllerpath, $newcontroller);
 		}
 	}
 	function velerateLINKTEXT() {
@@ -1288,15 +1302,24 @@ $addmodel_str";
 		$('select[multiple]').select2();
 	</script>
 @endsection";
+
+		if (isset($this->file_inputs[$table])) {
+			$files_flag = "true";
+		} else {
+			$files_flag = "false";
+		}
+
 		$standard_create_form = file_get_contents($this->velerator_path."/velerator_files/views/create.blade.php");
 		$new_create_form = str_replace("[MODEL]", $model, $standard_create_form);
 		$new_create_form = str_replace("[TABLE]", $table, $new_create_form);
+		$new_create_form = str_replace("[FILES_FLAG]", $files_flag, $new_create_form);
 		file_put_contents($this->full_app_path."/resources/views/$table/create.blade.php", $new_create_form);
 
 		$singular_lower = strtolower($model);
 		$standard_edit_form = file_get_contents($this->velerator_path."/velerator_files/views/edit.blade.php");
 		$new_edit_form = str_replace("[MODEL]", $model, $standard_edit_form);
 		$new_edit_form = str_replace("[TABLE]", $table, $new_edit_form);
+		$new_edit_form = str_replace("[FILES_FLAG]", $files_flag, $new_edit_form);
 		$new_edit_form = str_replace("[SINGULAR_VARIABLE]", $singular_lower, $new_edit_form);
 		file_put_contents($this->full_app_path."/resources/views/$table/edit.blade.php", $new_edit_form);
 
@@ -1524,7 +1547,8 @@ use App\\'.$singular.";", $thiscontroller);
 		return view('".$table.".show', compact('".$singular_lower."'));");
 			}
 			$this->replaceEmptyFunction($controllerpath, "edit",   "return view('".$table.".edit', compact('".$singular_lower."'));");
-			$this->replaceEmptyFunction($controllerpath, "update", '$'.$singular_lower.'->update($request->all());
+			$this->replaceEmptyFunction($controllerpath, "update", '$input = $request->all();
+		$'.$singular_lower.'->update($input);
 		[MANYTOMANY_UPDATE]
 		return redirect("'.$table.'/".$'.$singular_lower.'->id);');
 			$this->replaceEmptyFunction($controllerpath, "destroy","return view('".$table.".".$singular_lower."_destroy', compact('".$singular_lower."'));");

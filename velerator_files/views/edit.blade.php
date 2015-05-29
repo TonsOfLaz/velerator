@@ -13,7 +13,9 @@ Edit [MODEL] {{ $[SINGULAR_VARIABLE]->link_text }}
 			<a class='button' href='/[TABLE]/{{ $[SINGULAR_VARIABLE]->id }}'>View</a>
 		</div>
 	</div>
-	{!! Form::model($[SINGULAR_VARIABLE], ['method' => 'PATCH', 'url' => "[TABLE]/$[SINGULAR_VARIABLE]->id"]) !!}
+	{!! Form::model($[SINGULAR_VARIABLE], [ 'method' 	=> 'PATCH', 
+											'url' 		=> "[TABLE]/$[SINGULAR_VARIABLE]->id", 
+											'files' 	=> [FILES_FLAG]]) !!}
 	@include('[TABLE].form', ['submit_text' => 'Update [MODEL]'])
 	{!! Form::close() !!}
 		</div>
