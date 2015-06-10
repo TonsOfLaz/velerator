@@ -51,12 +51,23 @@ class Velerator {
 			shell_exec("git commit -am 'Packages installed.'");
 		} else {
 			//$this->revertToExistingLaravelInstall();
-			chdir($this->full_app_path);
-			shell_exec("git stash");
-			shell_exec("git rebase --onto velerator_fresh_install_packages velerator_generated master");
-			shell_exec("git branch -D velerator_generated");
-			shell_exec("git checkout velerator_fresh_install_packages");
+			if (chdir($this->full_app_path)) {
+				shell_exec("git stash");
+				shell_exec("git rebase --onto velerator_fresh_install_packages velerator_generated master");
+				shell_exec("git branch -D velerator_generated");
+				shell_exec("git checkout velerator_fresh_install_packages");
+			} else {
+				echo "ERROR: Couldn't change directory.";
+				exit();
+			}
+			
 		}
+
+		if (!chdir($this->full_app_path)) {
+			echo "ERROR: Couldn't change directory.";
+			exit();
+		}
+
 		shell_exec("git branch velerator_generated");
 		shell_exec("git checkout velerator_generated");
 
