@@ -33,11 +33,12 @@ class Velerator {
 			
 			//$this->buildFreshLaravelInstallWithPackages();
 
-			// For current live version (5.0)
-			//shell_exec("laravel new ".$this->project_name);
+			// For current live version (5.1)
+			shell_exec("laravel new ".$this->project_name);
 			
 			// For current development version (5.1)
-			shell_exec("composer create-project laravel/laravel ".$this->project_name." dev-develop");
+			//shell_exec("composer create-project laravel/laravel ".$this->project_name." dev-develop");
+
 			chdir($this->full_app_path);
 			shell_exec("git init");
 			shell_exec("git checkout --orphan velerator_fresh_install");
@@ -441,6 +442,7 @@ class Velerator {
 			'password'		=> 'md5',
 			'first_name' 	=> 'firstName',
 			'last_name' 	=> 'lastName',
+			'gender' 		=> 'randomElement([\'M\',\'F\'])',
 			'company_name' 	=> 'company',
 			'company'		=> 'company',
 			'name'			=> 'name',
@@ -466,8 +468,10 @@ class Velerator {
 			'comment'		=> 'realText()',
 			'note'			=> 'realText()',
 			'date'			=> 'dateTime()',
+			'dob'			=> 'date()',
 			'year'			=> 'year()',
 			'image'			=> 'imageURL()',
+			'unique_id'		=> 'uuid',
 		];
 		if (isset($end_match_array[$field_name])) {
 			// Exact match
@@ -681,6 +685,9 @@ class Velerator {
 			$obj_sin_arr = explode(" ", $object_and_singular);
 			$object = trim($obj_sin_arr[0]);
 			$singular = trim($obj_sin_arr[1]);
+
+
+
 			$this->singular_models[$object] = $singular;
 			$fillable_array[$singular] = "";
 			// Create Migration
@@ -693,10 +700,18 @@ class Velerator {
 
 			if (!isset($this->tableflags[$object]['model-only'])) {
 
+				if ($object == 'users') {
+					// Remove the default 'users' migration
+					// because they have defined their own.
+					shell_exec("rm ".$this->full_app_path."/database/migrations/2014_10_12_000000_create_users_table.php");
+				}
+
 				shell_exec("php artisan make:migration --create=$object create_".$object."_table");
 				
 				$allfields_arr = [];
 				$once = 1;
+
+
 				foreach ($fields_arr as $field_str) {
 					$fieldtype = "string";  // Default is string if blank
 					$fieldfunction = "";
@@ -730,7 +745,7 @@ class Velerator {
 						$fieldfunction = $thisfield_arr[2];
 					}
 					if (!$fieldfunction) {
-						$fieldfunction = "nullable";
+						//$fieldfunction = "nullable";
 					}
 					if ($fieldtype == 'file') {
 						$fieldtype = "string";
@@ -844,6 +859,7 @@ class Velerator {
 			$name = $field_vals['name'];
 			$secondarytable = $field_vals['secondary'];
 			$after_function = "";
+			$function = "";
 			if (isset($field_vals['function'])) {
 				if ($function = $field_vals['function']) {
 					$after_function = "->$function()";
@@ -854,8 +870,17 @@ class Velerator {
 				$type = 'unsignedInteger';
 			}
 
-			$str .= '$table'."->$type('$name')$after_function;
+			if (strpos('a'.$function, '*') > 0) {
+				// after_function is actually a value to be placed
+				$argument_val = str_replace('*', '', $function);
+				$str .= '$table'."->$type('$name', $argument_val);
 			";
+			} else {
+				$str .= '$table'."->$type('$name')$after_function;
+			";
+			}
+			
+			
 
 			if ($secondarytable) {
 				$str .= '$table'."->foreign('$name')
@@ -868,6 +893,11 @@ class Velerator {
 			}
 			$this->schema[$edit_table][$name] = $type;
 
+
+		}
+		if ($edit_table == 'users') {
+			$str .= '$table->rememberToken();
+			';
 		}
 		$glob_arr = glob($this->full_app_path."/database/migrations/*_create_".$edit_table."_table.php");
 		if (count($glob_arr) > 0) {
@@ -1205,6 +1235,8 @@ $addmodel_str";
 		if (isset($this->schema[$table])) {
 			foreach ($this->schema[$table] as $fieldname => $fieldtype) {
 				if ($fieldname == 'user_id') {
+					// No need to make user selectable, 
+					// should be automatically filled in.
 					continue;
 				}
 				$inputtype = "";
@@ -2102,13 +2134,13 @@ $modelstr", $commandfile);
 	function addProvider($val) {
 		$config_app = file_get_contents($this->full_app_path."/config/app.php");
 		$new_config_app = str_replace("'providers' => [", "'providers' => [
-		'$val',", $config_app);
+		$val::class,", $config_app);
 		file_put_contents($this->full_app_path."/config/app.php", $new_config_app);
 	}
 	function addAlias($name, $path) {
 		$config_app = file_get_contents($this->full_app_path."/config/app.php");
 		$new_config_app = str_replace("'aliases' => [", "'aliases' => [
-		'$name' 	=> '$path',", $config_app);
+		'$name' 		=> $path::class,", $config_app);
 		file_put_contents($this->full_app_path."/config/app.php", $new_config_app);
 	}
 	
