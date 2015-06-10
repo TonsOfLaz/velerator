@@ -633,7 +633,11 @@ class Velerator {
 	}
 	public function clearExistingAppDirectory() {
 		echo "Clearing existing directory...\n";
-		shell_exec("rm -rf ".$this->full_app_path);
+		$output = shell_exec("rm -rf ".$this->full_app_path);
+		if (strpos($output, 'cannot') > 0) {
+			echo "ERROR: $output";
+			exit();
+		}
 		echo "Done deleting ".$this->project_name."\n";
 	}
 
