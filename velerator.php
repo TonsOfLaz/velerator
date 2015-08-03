@@ -648,7 +648,7 @@ class Velerator {
 		}
 
 		$database_seeder_master = file_get_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php");
-		$replacestr = '// $this'."->call('UserTableSeeder');";
+		$replacestr = '// $this'."->call(UserTableSeeder::class);";
 		$new_dbseed_master = str_replace($replacestr, $table_seeder_calls, $database_seeder_master);
 		file_put_contents($this->full_app_path."/database/seeds/DatabaseSeeder.php", $new_dbseed_master);
 
@@ -1635,6 +1635,8 @@ use App\\'.$singular.";", $thiscontroller);
 		$'.$table.' = $'.$table.'->paginate(15);
 		'.$returnformat.'');
 			}
+			$this->replaceEmptyFunction($controllerpath, "index", '$'.$table.' = '.$singular.'::paginate();
+		return view("'.$table.'.index", '."compact(['$table']".'));');
 			$this->replaceEmptyFunction($controllerpath, "create", 'return view("'.$table.'.create");');
 			$this->replaceEmptyFunction($controllerpath, "store",  '
 		$input = $request->all();
