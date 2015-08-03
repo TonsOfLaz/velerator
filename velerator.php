@@ -362,7 +362,7 @@ class Velerator {
 	}
 
 	public function velerateSOCIALITE() {
-		print_r($this->project_config_array);
+		
 		if (isset($this->project_config_array['SOCIALITE'])) {
 
 			// http://www.codeanchor.net/blog/complete-laravel-socialite-tutorial/
@@ -797,7 +797,7 @@ class Velerator {
 					if ($fieldtype == 'file') {
 						$fieldtype = "string";
 						$this->file_inputs[$object][$fieldname] = $fieldfunction;
-						$fieldfunction = "";
+						$fieldfunction = "nullable";
 					}
 					$tempfield_arr = [];
 					$tempfield_arr['name'] = $fieldname;
