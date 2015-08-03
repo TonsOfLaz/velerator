@@ -86,8 +86,8 @@ class Velerator {
 		}
 		$this->velerateENV();
 		$this->gitAddAndCommitWithMessage("Added ENV file.");
-		$this->velerateDBMODELS();
-		$this->gitAddAndCommitWithMessage("Added DBMODELS and routes.");
+		$this->velerateACTIVERECORD();
+		$this->gitAddAndCommitWithMessage("Added ACTIVERECORD and routes.");
 		$this->velerateLINKTEXT();
 		$this->gitAddAndCommitWithMessage("Added LINKTEXT to models.");
 		$this->velerateRELATIONSHIPS();
@@ -117,6 +117,8 @@ class Velerator {
 		shell_exec("php artisan migrate");
 		$this->createTESTFACTORIES();
 		$this->gitAddAndCommitWithMessage("Added TESTFACTORIES for fake database data.");
+		$this->velerateSOCIALITE();
+		$this->gitAddAndCommitWithMessage("Added SOCIALITE for third party logins.");
 		$this->runSEEDREAL();
 		$this->gitAddAndCommitWithMessage("Added real data seeder files.");
 		$this->runSEEDFAKE();
@@ -357,6 +359,38 @@ class Velerator {
 			}
 		}
 
+	}
+
+	public function velerateSOCIALITE() {
+		print_r($this->project_config_array);
+		if (isset($this->project_config_array['SOCIALITE'])) {
+
+			// http://www.codeanchor.net/blog/complete-laravel-socialite-tutorial/
+
+			$this->addProvider("Laravel\Socialite\SocialiteServiceProvider");
+			$this->addAlias("Socialite", "Laravel\Socialite\Facades\Socialite");
+			
+
+			foreach ($this->project_config_array['SOCIALITE'] as $service => $service_variables) {
+				
+				// Set env
+				// register service provider, facade to app.php
+				// add login route
+				// login method in authcontroller
+					// redirect
+					// login
+				// AuthenticateUser model
+					// constructor
+					// execute
+					// getauthorzationfirst
+				// User
+					// add to user table migration (avatar, provider, provider_id, username)
+					// find by user name or create
+					// add check for updating
+
+
+			}
+		}
 	}
 
 	public function createTESTFACTORIES() {
@@ -646,17 +680,15 @@ class Velerator {
 		// ===================================> ADD COMPOSER TOOLS
 		chdir($this->full_app_path);
 
+		if (isset($this->project_config_array['SOCIALITE'])) {
+			shell_exec("composer require laravel/socialite ~2.0");
+		}
+
 		shell_exec("composer require laravelcollective/html");
 		$this->addProvider("Collective\Html\HtmlServiceProvider");
 		$this->addAlias("Form", "Collective\Html\FormFacade");
       	$this->addAlias("Html", "Collective\Html\HtmlFacade");
 		
-		if (isset($this->project_config_array['TESTFACTORIES'])) {
-			
-			echo "Adding 'TestDummy' tool...\n";
-			//shell_exec("composer require fzaninotto/faker");
-			shell_exec('composer require laracasts/testdummy');
-		}
 		if (isset($this->project_config_array['PACKAGES'])) {
 			foreach ($this->project_config_array['PACKAGES'] as $name => $package_settings) {
 				echo "Adding '$name' tool...\n";
@@ -681,12 +713,12 @@ class Velerator {
 		}
 	}
 
-	public function velerateDBMODELS() {
+	public function velerateACTIVERECORD() {
 		$fillable_array = [];
 		
 		// Schema
 
-		foreach ($this->project_config_array['DBMODELS'] as $object_and_singular_and_flags => $fields_arr) {
+		foreach ($this->project_config_array['ACTIVERECORD'] as $object_and_singular_and_flags => $fields_arr) {
 
 			$flags = "";
 			$objectflag_arr = explode("|", $object_and_singular_and_flags);
@@ -1498,45 +1530,47 @@ Route::get('".$routebase_arr[0]."', '".$controller."@".$routebase_arr[0]."');";
 				file_put_contents($controller_file_path, $newfile);
 			}
 		}
-		foreach ($this->listqueries as $model => $function_names) {
-			foreach ($function_names as $function_name => $function_type) {
+		if (isset($project_config_array['SCOPE_ROUTES'])) {
+			foreach ($this->listqueries as $model => $function_names) {
+				foreach ($function_names as $function_name => $function_type) {
 
-				$tablename = $this->getTableFromModelName($model);
-				$this->demopage_array["MODELS"][$tablename]['listqueries'][] = $function_name;
-				$this->demopage_array['ROUTES']['GET'][$model][$tablename."?scope=".$function_name] = "List Query: $function_name ".ucwords($tablename);
-				$controllerpath = $this->full_app_path."/app/Http/Controllers/".ucwords($tablename)."Controller.php";
-				$controllerfile = file_get_contents($controllerpath);
-				// replaces the plain controller code, from LISTQUERIES
-				$replace_func = 'switch ($scope) {';
-				$new_func = "
-			case '$function_name':
-				$"."scope_function = '$function_name';
-				break;";
-				$newcontrollerfile = str_replace($replace_func, $replace_func.$new_func, $controllerfile);
-				file_put_contents($controllerpath, $newcontrollerfile);
-				// replaces the plain view code, from LISTQUERIES
-				$viewpath = $this->full_app_path."/resources/views/$tablename/$function_name.blade.php";
-				if (!file_exists($viewpath)) {
-					$title = ucwords($tablename)." ".$function_name;
-					$viewcontent = "@extends('$tablename.list')
-@section('title')
-$title
-@endsection";
-					file_put_contents($viewpath, $viewcontent);
+					$tablename = $this->getTableFromModelName($model);
+					$this->demopage_array["MODELS"][$tablename]['listqueries'][] = $function_name;
+					$this->demopage_array['ROUTES']['GET'][$model][$tablename."?scope=".$function_name] = "List Query: $function_name ".ucwords($tablename);
+					$controllerpath = $this->full_app_path."/app/Http/Controllers/".ucwords($tablename)."Controller.php";
+					$controllerfile = file_get_contents($controllerpath);
+					// replaces the plain controller code, from LISTQUERIES
+					$replace_func = 'switch ($scope) {';
+					$new_func = "
+				case '$function_name':
+					$"."scope_function = '$function_name';
+					break;";
+					$newcontrollerfile = str_replace($replace_func, $replace_func.$new_func, $controllerfile);
+					file_put_contents($controllerpath, $newcontrollerfile);
+					// replaces the plain view code, from LISTQUERIES
+					$viewpath = $this->full_app_path."/resources/views/$tablename/$function_name.blade.php";
+					if (!file_exists($viewpath)) {
+						$title = ucwords($tablename)." ".$function_name;
+						$viewcontent = "@extends('$tablename.list')
+	@section('title')
+	$title
+	@endsection";
+						file_put_contents($viewpath, $viewcontent);
+					}
+					$viewfile = file_get_contents($viewpath);
+					$replace_view = "@section('content')
+	$tablename $function_name
+	@endsection";
+					$newview = "@section('content')
+		<ul>
+		@foreach ($".$tablename." as $".strtolower($model).") 
+			<li><a href='/$tablename/{{ $".strtolower($model)."->id }}'>{{ $".strtolower($model)."->link_text }}</a></li>
+		@endforeach
+		</ul>
+	@endsection";
+					$newviewfile = str_replace($replace_view, $newview, $viewfile);
+					file_put_contents($viewpath, $newviewfile);
 				}
-				$viewfile = file_get_contents($viewpath);
-				$replace_view = "@section('content')
-$tablename $function_name
-@endsection";
-				$newview = "@section('content')
-	<ul>
-	@foreach ($".$tablename." as $".strtolower($model).") 
-		<li><a href='/$tablename/{{ $".strtolower($model)."->id }}'>{{ $".strtolower($model)."->link_text }}</a></li>
-	@endforeach
-	</ul>
-@endsection";
-				$newviewfile = str_replace($replace_view, $newview, $viewfile);
-				file_put_contents($viewpath, $newviewfile);
 			}
 		}
 	}
@@ -1583,7 +1617,9 @@ use App\\'.$singular.";", $thiscontroller);
 				$returnformat = 'return view("'.$table.'.index", compact("'.$table.'"));';
 			}
 			$controllerpath = "./app/Http/Controllers/".$capstable."Controller.php";
-			$this->replaceEmptyFunction($controllerpath, "index",  '$scope = $request->input("scope");
+			if (isset($this->project_config_array['SCOPE_ROUTES'])) {
+				
+				$this->replaceEmptyFunction($controllerpath, "index",  '$scope = $request->input("scope");
 		switch ($scope) {
 			default:
 				$scope_function = "";
@@ -1598,7 +1634,7 @@ use App\\'.$singular.";", $thiscontroller);
 		[QUERYPARAMETERS]
 		$'.$table.' = $'.$table.'->paginate(15);
 		'.$returnformat.'');
-
+			}
 			$this->replaceEmptyFunction($controllerpath, "create", 'return view("'.$table.'.create");');
 			$this->replaceEmptyFunction($controllerpath, "store",  '
 		$input = $request->all();
@@ -2043,7 +2079,7 @@ $modelstr", $commandfile);
 	}
 	public function velerateListParameterFilters() {
 		// Adds a parameter query for any list
-		// based on the fields defined in DBMODELS
+		// based on the fields defined in ACTIVERECORD
 		foreach ($this->singular_models as $table => $model) {
 			if (isset($this->tableflags[$table]['model-only'])) {
 				continue;
@@ -2143,7 +2179,10 @@ $modelstr", $commandfile);
 	}
 	public function getTableFromModelName($model) {
 		$temparr = array_flip($this->singular_models);
-		return $temparr[$model];
+		if (isset($temparr[$model])) {
+			return $temparr[$model];
+		}
+		return "";
 	}
 
 	function addProvider($val) {
