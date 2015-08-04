@@ -367,15 +367,48 @@ class Velerator {
 
 			// http://www.codeanchor.net/blog/complete-laravel-socialite-tutorial/
 
+			// register service provider, facade to app.php
 			$this->addProvider("Laravel\Socialite\SocialiteServiceProvider");
 			$this->addAlias("Socialite", "Laravel\Socialite\Facades\Socialite");
-			
 
 			foreach ($this->project_config_array['SOCIALITE'] as $service => $service_variables) {
-				
-				// Set env
-				// register service provider, facade to app.php
+
 				// add login route
+				$routefile = file_get_contents($this->full_app_path.'/app/Http/routes.php');
+				$routestr = "
+Route::get('login/$service', 'Auth\AuthController@login');";
+				$replacestr = "Route::get('/', function () {
+    return view('welcome');
+});";
+				$newfile = str_replace($replacestr, $replacestr.$routestr, $routefile);
+				file_put_contents($this->full_app_path.'/app/Http/routes.php', $newfile);
+
+				$authcontroller = file_get_contents($this->full_app_path.'/app/Http/Controllers/Auth/AuthController.php');
+				$replacestr = '$this->middleware(\'guest\', [\'except\' => \'getLogout\']);
+    }';
+    			$loginfunc = '
+    public function login(AuthenticateUser $authenticateUser, Request $request, $provider = null) 
+    {
+       return $authenticateUser->execute($request->all(), $this, $provider);
+    }';
+    			$newauth = str_replace($replacestr, $replacestr.$loginfunc, $authcontroller);
+    			file_put_contents($this->full_app_path.'/app/Http/Controllers/Auth/AuthController.php', $newauth);
+				
+    			shell_exec("cp ".$this->velerator_path."/velerator_files/socialite/AuthenticateUser.php ".$this->full_app_path."/app/");
+
+    			$user_replacestr = 'protected $hidden = [\'password\', \'remember_token\'];';
+    			$user_model = file_get_contents($this->full_app_path."/app/User.php");
+    			$userfunctions = file_get_contents($this->velerator_path."/velerator_files/socialite/User_functions.php");
+    			$newusermodel = str_replace($user_replacestr, $user_replacestr.
+
+    $userfunctions, $user_model);
+    			file_put_contents($this->full_app_path."/app/User.php", $newusermodel);
+
+				foreach ($service_variables as $variable) {
+
+				}
+				
+				
 				// login method in authcontroller
 					// redirect
 					// login
