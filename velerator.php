@@ -383,6 +383,10 @@ Route::get('login/$service', 'Auth\AuthController@login');";
 				$newfile = str_replace($replacestr, $replacestr.$routestr, $routefile);
 				file_put_contents($this->full_app_path.'/app/Http/routes.php', $newfile);
 
+				// login method in authcontroller
+					// redirect
+					// login
+
 				$authcontroller = file_get_contents($this->full_app_path.'/app/Http/Controllers/Auth/AuthController.php');
 				$replacestr = '$this->middleware(\'guest\', [\'except\' => \'getLogout\']);
     }';
@@ -391,11 +395,25 @@ Route::get('login/$service', 'Auth\AuthController@login');";
     {
        return $authenticateUser->execute($request->all(), $this, $provider);
     }';
+
+    			
     			$newauth = str_replace($replacestr, $replacestr.$loginfunc, $authcontroller);
+    			$newauth = str_replace("use App\User;", "use App\User;
+use App\AuthenticateUser;
+use Illuminate\Http\Request;", $newauth);
     			file_put_contents($this->full_app_path.'/app/Http/Controllers/Auth/AuthController.php', $newauth);
 				
+				// AuthenticateUser model
+					// constructor
+					// execute
+					// getauthorzationfirst
     			shell_exec("cp ".$this->velerator_path."/velerator_files/socialite/AuthenticateUser.php ".$this->full_app_path."/app/");
 
+    			// User
+					// add to user table migration (avatar, provider, provider_id, username)
+					// email nullable
+					// find by user name or create
+					// add check for updating
     			$user_replacestr = 'protected $hidden = [\'password\', \'remember_token\'];';
     			$user_model = file_get_contents($this->full_app_path."/app/User.php");
     			$userfunctions = file_get_contents($this->velerator_path."/velerator_files/socialite/User_functions.php");
@@ -404,22 +422,36 @@ Route::get('login/$service', 'Auth\AuthController@login');";
     $userfunctions, $user_model);
     			file_put_contents($this->full_app_path."/app/User.php", $newusermodel);
 
+    			// Add service to config
+    			$services_config = file_get_contents($this->full_app_path."/config/services.php");
+
+    			$newservice = "
+	'$service' => [
+		'client_id' => env('".strtoupper($service)."_CLIENT_ID'),
+		'client_secret' => env('".strtoupper($service)."_CLIENT_SECRET'),
+		'redirect' => env('".strtoupper($service)."_REDIRECT'),
+	]
+";
+				$new_services_config = str_replace("];", $newservice."];", $services_config);
+				file_put_contents($this->full_app_path."/config/services.php", $new_services_config);
+
+				// Add environment variables
+    			$envline = "\n\n";
+
 				foreach ($service_variables as $variable) {
 
+					$var_arr = explode("|", $variable);
+					$var_key = trim($var_arr[0]);
+					$var_val = trim($var_arr[1]);
+
+					$envline .= strtoupper($service)."_".$var_key."=".$var_val."\n";
+
 				}
+				file_put_contents(".env", $envline, FILE_APPEND);
+				
+
 				
 				
-				// login method in authcontroller
-					// redirect
-					// login
-				// AuthenticateUser model
-					// constructor
-					// execute
-					// getauthorzationfirst
-				// User
-					// add to user table migration (avatar, provider, provider_id, username)
-					// find by user name or create
-					// add check for updating
 
 
 			}
