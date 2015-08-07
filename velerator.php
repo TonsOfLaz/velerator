@@ -114,11 +114,11 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added Nested Routes.");
 		$this->velerateListParameterFilters();
 		$this->gitAddAndCommitWithMessage("Added list parameter filters.");
+		$this->velerateSOCIALITE();
+		$this->gitAddAndCommitWithMessage("Added SOCIALITE for third party logins.");
 		shell_exec("php artisan migrate");
 		$this->createTESTFACTORIES();
 		$this->gitAddAndCommitWithMessage("Added TESTFACTORIES for fake database data.");
-		$this->velerateSOCIALITE();
-		$this->gitAddAndCommitWithMessage("Added SOCIALITE for third party logins.");
 		$this->runSEEDREAL();
 		$this->gitAddAndCommitWithMessage("Added real data seeder files.");
 		$this->runSEEDFAKE();
@@ -376,10 +376,13 @@ class Velerator {
 				// add login route
 				$routefile = file_get_contents($this->full_app_path.'/app/Http/routes.php');
 				$routestr = "
-Route::get('login/$service', 'Auth\AuthController@login');";
+Route::get('login/{service?}', 'Auth\AuthController@login');
+Route::get('login/callback/{service?}', 'Auth\AuthController@callback');";
 				$replacestr = "Route::get('/', function () {
     return view('welcome');
-});";
+});
+";
+
 				$newfile = str_replace($replacestr, $replacestr.$routestr, $routefile);
 				file_put_contents($this->full_app_path.'/app/Http/routes.php', $newfile);
 
@@ -394,7 +397,18 @@ Route::get('login/$service', 'Auth\AuthController@login');";
     public function login(AuthenticateUser $authenticateUser, Request $request, $provider = null) 
     {
        return $authenticateUser->execute($request->all(), $this, $provider);
-    }';
+    }
+
+    public function callback(AuthenticateUser $authenticateUser, Request $request, $provider = null) 
+    {
+       return $authenticateUser->execute($request->all(), $this, $provider);
+    }
+
+    public function userHasLoggedIn($user) {
+	    \Session::flash(\'message\', \'Welcome, \' . $user->username);
+	    return redirect(\'/\');
+	}
+	';
 
     			
     			$newauth = str_replace($replacestr, $replacestr.$loginfunc, $authcontroller);
@@ -409,18 +423,11 @@ use Illuminate\Http\Request;", $newauth);
 					// getauthorzationfirst
     			shell_exec("cp ".$this->velerator_path."/velerator_files/socialite/AuthenticateUser.php ".$this->full_app_path."/app/");
 
-    			// User
-					// add to user table migration (avatar, provider, provider_id, username)
-					// email nullable
-					// find by user name or create
-					// add check for updating
-    			$user_replacestr = 'protected $hidden = [\'password\', \'remember_token\'];';
-    			$user_model = file_get_contents($this->full_app_path."/app/User.php");
-    			$userfunctions = file_get_contents($this->velerator_path."/velerator_files/socialite/User_functions.php");
-    			$newusermodel = str_replace($user_replacestr, $user_replacestr.
+    			// Replace with new User model
+    			shell_exec("cp -f ".$this->velerator_path."/velerator_files/socialite/User.php ".$this->full_app_path."/app/User.php");
 
-    $userfunctions, $user_model);
-    			file_put_contents($this->full_app_path."/app/User.php", $newusermodel);
+    			// Replace user migration
+    			shell_exec("cp -f ".$this->velerator_path."/velerator_files/socialite/create_users_table.php ".$this->full_app_path."/database/migrations/2014_10_12_000000_create_users_table.php");
 
     			// Add service to config
     			$services_config = file_get_contents($this->full_app_path."/config/services.php");
@@ -448,11 +455,6 @@ use Illuminate\Http\Request;", $newauth);
 
 				}
 				file_put_contents(".env", $envline, FILE_APPEND);
-				
-
-				
-				
-
 
 			}
 		}

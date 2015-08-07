@@ -3,7 +3,7 @@
 use Illuminate\Contracts\Auth\Guard; 
 use Laravel\Socialite\Contracts\Factory as Socialite; 
 use App\User; 
-use Request; 
+use Illuminate\Laravel\Request; 
 
 class AuthenticateUser {     
 
