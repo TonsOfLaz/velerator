@@ -110,10 +110,10 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added Model Details or view Tabs.");
 		$this->velerateROUTES();
 		$this->gitAddAndCommitWithMessage("Added Custom ROUTES.");
-		$this->velerateNestedRoutes();
-		$this->gitAddAndCommitWithMessage("Added Nested Routes.");
-		$this->velerateListParameterFilters();
-		$this->gitAddAndCommitWithMessage("Added list parameter filters.");
+		// $this->velerateNestedRoutes();
+		// $this->gitAddAndCommitWithMessage("Added Nested Routes.");
+		// $this->velerateListParameterFilters();
+		// $this->gitAddAndCommitWithMessage("Added list parameter filters.");
 		$this->velerateSOCIALITE();
 		$this->gitAddAndCommitWithMessage("Added SOCIALITE for third party logins.");
 		shell_exec("php artisan migrate");
@@ -125,8 +125,8 @@ class Velerator {
 		$this->gitAddAndCommitWithMessage("Added fake data seeder files.");
 		$this->createMasterSeederAndRun();
 		$this->gitAddAndCommitWithMessage("Added master seeder and ran all seeders.");
-		$this->createDemoPage();
-		$this->gitAddAndCommitWithMessage("Added Demo page.");
+		//$this->createDemoPage();
+		//$this->gitAddAndCommitWithMessage("Added Demo page.");
 
 		//print_r($this->nestedroutes);
 
@@ -377,7 +377,8 @@ class Velerator {
 				$routefile = file_get_contents($this->full_app_path.'/app/Http/routes.php');
 				$routestr = "
 Route::get('login/{service?}', 'Auth\AuthController@login');
-Route::get('login/callback/{service?}', 'Auth\AuthController@callback');";
+Route::get('login/callback/{service?}', 'Auth\AuthController@callback');
+";
 				$replacestr = "Route::get('/', function () {
     return view('welcome');
 });
@@ -751,6 +752,12 @@ use Illuminate\Http\Request;", $newauth);
 			shell_exec("composer require laravel/socialite ~2.0");
 		}
 
+		// All get Sentry, its the best
+		shell_exec("composer require cartalyst/sentry:dev-feature/laravel-5");
+		$this->addProvider("Cartalyst\Sentry\SentryServiceProvider");
+		$this->addAlias("Sentry", "Cartalyst\Sentry\Facades\Laravel\Sentry");
+
+		// Forms and HTML package, also for all
 		shell_exec("composer require laravelcollective/html");
 		$this->addProvider("Collective\Html\HtmlServiceProvider");
 		$this->addAlias("Form", "Collective\Html\FormFacade");
@@ -1057,7 +1064,8 @@ use Illuminate\Http\Request;", $newauth);
 						$function_str .= $this->getRelationshipFunction($function_name, 
 																		$relationship_model, 
 																		$relationship_type,
-																		$relationship_field);
+																		$relationship_field,
+																		'');
 						break;
 					case 'belongsTo':
 						$this->nestedroutes[$model][$relationship_model] = 1;	
@@ -1069,7 +1077,8 @@ use Illuminate\Http\Request;", $newauth);
 						$function_str .= $this->getRelationshipFunction($function_name, 
 																		$relationship_model, 
 																		$relationship_type,
-																		$relationship_field);
+																		$relationship_field,
+																		'');
 						break;
 					case 'belongsToThrough':
 						if (!$function_name) {
@@ -1087,24 +1096,30 @@ use Illuminate\Http\Request;", $newauth);
 						$function_str .= $this->getRelationshipFunction($function_name, 
 																		$relationship_model, 
 																		$relationship_type,
-																		$relationship_field);
+																		$relationship_field,
+																		'');
 						
 						break;
 					case 'belongsToMany':
 						if (!$function_name) {
 							$function_name = $this->getTableFromModelName($relationship_model);
 						}
+						if (strcmp($relationship_model, $model) < 0) {
+							$pivot_table = $relationship_model."_".$model;
+						} else {
+							$pivot_table = $model."_".$relationship_model;
+							
+						}
+						$pivot_table = strtolower($pivot_table);
+						$pivot_tables[$pivot_table] = 1;
 						$this->form_models_array[$model]['belongstomany'][$relationship_model] = 1;
 						$function_str .= $this->getRelationshipFunction($function_name, 
 																		$relationship_model, 
 																		$relationship_type,
-																		$relationship_field);
+																		$relationship_field,
+																		$pivot_table);
 						$function_str .= $this->getRelationshipListFunction($function_name, $relationship_model);
-						if (strcmp($relationship_model, $model) < 0) {
-							$pivot_tables[$relationship_model."_".$model] = 1;
-						} else {
-							$pivot_tables[$model."_".$relationship_model] = 1;
-						}
+						
 						break;
 					case 'hasManyThrough':
 						break;
@@ -1123,7 +1138,8 @@ use Illuminate\Http\Request;", $newauth);
 						$function_str .= $this->getRelationshipFunction($function_name, 
 																		$relationship_model, 
 																		$relationship_type,
-																		$relationship_field);
+																		$relationship_field,
+																		'');
 						
 						break;
 					case 'morphedByMany':
@@ -1136,7 +1152,8 @@ use Illuminate\Http\Request;", $newauth);
 						$function_str .= $this->getRelationshipFunction($function_name, 
 																		$relationship_model, 
 																		$relationship_type,
-																		$relationship_field);
+																		$relationship_field,
+																		'');
 						
 						break;
 						
@@ -1177,6 +1194,22 @@ use Illuminate\Http\Request;", $newauth);
 			$linkfields_arr = [];
 			$linkfields_arr[] = $primary_arr;
 			$linkfields_arr[] = $secondary_arr;
+			if (isset($this->project_config_array['PIVOTFIELDS'][$pivot_table_name])) {
+				foreach ($this->project_config_array['PIVOTFIELDS'][$pivot_table_name] as $name_type) {
+					$name_type_arr = explode(" ", trim($name_type));
+					$pivot_field_name = $name_type_arr[0];
+					if (isset($name_type_arr[1])) {
+						$pivot_field_type = $name_type_arr[1];
+					} else {
+						$pivot_field_type = 'string';
+					}
+					$pivot_field_arr = [];
+					$pivot_field_arr['name'] = $pivot_field_name;
+					$pivot_field_arr['type'] = $pivot_field_type;
+					$pivot_field_arr['secondary'] = '';
+					$linkfields_arr[] = $pivot_field_arr;
+				}
+			}
 			$this->addFieldArrayToCreateSchema($pivot_table_name, $linkfields_arr);
 		}
 		foreach($morph_tables as $morph_singular => $model) {
@@ -1952,10 +1985,6 @@ use App\\'.$singular.";", $thiscontroller);
 			$mainlist = $this->getListViewMain($table);
 			file_put_contents($this->full_app_path."/resources/views/".$table."/index.blade.php", $mainlist);
 			$this->addCreateAndEditForm($table, $singular);
-			$this->addModelViewCommand($table, $singular, "store");
-			$this->addModelViewCommand($table, $singular, "edit");
-			$this->addModelViewCommand($table, $singular, "update");
-			$this->addModelViewCommand($table, $singular, "destroy");
 		}
 
 		if (isset($this->project_config_array['ROUTES'])) {
@@ -2064,32 +2093,6 @@ $pagename
 		</div>
 	</div>
 @endsection";
-	}
-	public function addModelViewCommand($table, $model, $command) {
-		$linktext = "{{ $".strtolower($model)."->link_text }}";
-		$command_upper = ucwords($command);
-		switch ($command) {
-			case 'create':
-			$command = "[create]";
-				$linktext = "";
-				break;
-		}
-		
-		$str = "
-@extends('app')
-
-@section('title')
-$command_upper $linktext
-@endsection
-
-@section('content')
-	<div class='row'>
-		<div class='columns small-12'>
-			$command_upper $linktext
-		</div>
-	</div>
-@endsection";
-		file_put_contents($this->full_app_path."/resources/views/$table/".strtolower($model)."_$command.blade.php", $str);
 	}
 	function replaceEmptyFunction($filepath, $function, $newcode) {
 		$originalfile = file_get_contents($filepath);
@@ -2212,10 +2215,23 @@ $modelstr", $commandfile);
 	    });';
 	}
 
-	public function getRelationshipFunction($function_name, $model, $type, $field) {
+	public function getRelationshipFunction($function_name, $model, $type, $field, $pivot_table) {
 		$extrafunction = "";
 		if ($type == 'belongsToMany') {
-			$extrafunction = '->withTimestamps()';
+			$extrafunction = "";
+			if ($pivot_table) {
+				if (isset($this->project_config_array['PIVOTFIELDS'][$pivot_table])) {
+					$pivot_fields = "";
+					foreach ($this->project_config_array['PIVOTFIELDS'][$pivot_table] as $fields) {
+						$fields_arr = explode(" ", $fields);
+						$first_word = $fields_arr[0];
+						$pivot_fields .= $first_word." ";
+					}
+					$pivot_fields = str_replace(" ", "', '", trim($pivot_fields));
+					$extrafunction .= "->withPivot('$pivot_fields')";
+				}
+			}
+			$extrafunction .= '->withTimestamps()';
 		}
 		if ($field) {
 			$model = $model."', '".$field;
